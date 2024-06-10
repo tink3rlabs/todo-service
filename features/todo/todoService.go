@@ -25,8 +25,12 @@ func (t *TodoService) ListTodos() []types.Todo {
 	return t.storage.ListTodos()
 }
 
-func (t *TodoService) GetTodo(id string) *types.Todo {
-	return t.storage.GetTodo(id)
+func (t *TodoService) GetTodo(id string) (types.Todo, error) {
+	todo, err := t.storage.GetTodo(id)
+	if err != nil {
+		return todo, err
+	}
+	return todo, nil
 }
 
 func (t *TodoService) DeleteTodo(id string) {

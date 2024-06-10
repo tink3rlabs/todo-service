@@ -2,9 +2,11 @@ package routes
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"todo-service/features/todo"
+	"todo-service/storage"
 	"todo-service/types"
 
 	"github.com/go-chi/chi/v5"
@@ -69,15 +71,30 @@ func ListTodos(w http.ResponseWriter, r *http.Request) {
 //	          application/json:
 //	            schema:
 //	              $ref: '#/components/schemas/Todo'
+//	      '404':
+//	         $ref: '#/components/responses/NotFound'
 func GetTodo(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	todo := service.GetTodo(id)
-	if todo == nil {
-		render.Status(r, 404)
-		response := `{"status":"NOT_FOUND","error":"Todo not found"}`
-		render.JSON(w, r, []byte(response))
+	todo, err := service.GetTodo(id)
+	if err != nil {
+		if errors.Is(err, storage.ErrNotFound) {
+			render.Status(r, 404)
+			response := types.ErrorResponse{
+				Status: "NOT_FOUND",
+				Error:  "Todo not found",
+			}
+			render.JSON(w, r, response)
+		} else {
+			render.Status(r, 500)
+			response := types.ErrorResponse{
+				Status: "SERVER_ERROR",
+				Error:  "Encountered an unexpected server error",
+			}
+			render.JSON(w, r, response)
+		}
+	} else {
+		render.JSON(w, r, todo)
 	}
-	render.JSON(w, r, service.GetTodo(id))
 }
 
 // @openapi

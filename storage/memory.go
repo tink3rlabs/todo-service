@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"fmt"
 	"sync"
 	"todo-service/types"
 )
@@ -19,15 +18,9 @@ func GetMemoryAdapterInstance() *MemoryAdapter {
 		lock.Lock()
 		defer lock.Unlock()
 		if instance == nil {
-			fmt.Println("Creating single instance now.")
-			instance = &MemoryAdapter{}
-		} else {
-			fmt.Println("Single instance already created.")
+			instance = &MemoryAdapter{todos: []types.Todo{}}
 		}
-	} else {
-		fmt.Println("Single instance already created.")
 	}
-
 	return instance
 }
 
@@ -35,13 +28,13 @@ func (m *MemoryAdapter) ListTodos() []types.Todo {
 	return m.todos
 }
 
-func (m *MemoryAdapter) GetTodo(id string) *types.Todo {
+func (m *MemoryAdapter) GetTodo(id string) (types.Todo, error) {
 	for _, v := range m.todos {
 		if v.Id == id {
-			return &v
+			return v, nil
 		}
 	}
-	return nil
+	return types.Todo{}, ErrNotFound
 }
 
 func (m *MemoryAdapter) DeleteTodo(id string) {

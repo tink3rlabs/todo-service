@@ -5,9 +5,11 @@ import (
 	"todo-service/types"
 )
 
+var ErrNotFound = errors.New("not found")
+
 type StorageAdapter interface {
 	ListTodos() []types.Todo
-	GetTodo(id string) *types.Todo
+	GetTodo(id string) (types.Todo, error)
 	DeleteTodo(id string)
 	CreateTodo(todo types.Todo)
 }
