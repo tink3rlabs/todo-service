@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-
-	"openapi-tester/features/todo"
+	"todo-service/features/todo"
+	"todo-service/types"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
@@ -20,7 +20,7 @@ func TodoRoutes() *chi.Mux {
 	return router
 }
 
-var service = todo.New()
+var service = todo.NewTodoService()
 
 // @openapi
 // paths:
@@ -127,7 +127,7 @@ func DeleteTodo(w http.ResponseWriter, r *http.Request) {
 //	      '201':
 //	        description: successful operation
 func CreateTodo(w http.ResponseWriter, r *http.Request) {
-	var todoToCreate todo.TodoUpdate
+	var todoToCreate types.TodoUpdate
 	err := json.NewDecoder(r.Body).Decode(&todoToCreate)
 	if err != nil {
 		errorMessage := fmt.Sprintf(`{"status":"BAD_REQUEST","error":"%v"}`, err)
