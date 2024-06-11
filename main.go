@@ -11,7 +11,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/go-chi/render"
-	openapi_godoc "github.com/tink3rlabs/openapi-godoc"
+	openapigodoc "github.com/tink3rlabs/openapi-godoc"
 )
 
 func Routes() *chi.Mux {
@@ -66,42 +66,33 @@ func GenerateOpenApiSpec() []byte {
 		log.Panicf("Logging err: %s\n", err.Error()) // panic if there is an error
 	}
 
-	apiDefinition := openapi_godoc.OpenAPIDefinition{
+	apiDefinition := openapigodoc.OpenAPIDefinition{
 		OpenAPI: "3.0.3",
-		Info: openapi_godoc.Info{
+		Info: openapigodoc.Info{
 			Title:       "Todo API",
 			Version:     "1.0.0",
 			Description: "Simple example Todo API",
 			Contact:     &openapi3.Contact{Email: "developer@example.com"},
 			License:     &openapi3.License{Name: "Apache 2.0", URL: "http://www.apache.org/licenses/LICENSE-2.0.html"},
 		},
-		Servers: []openapi_godoc.Server{{URL: "http://localhost:8080"}},
-		Tags: []openapi_godoc.Tag{
+		Servers: []openapigodoc.Server{{URL: "http://localhost:8080"}},
+		Tags: []openapigodoc.Tag{
 			{
 				Name:         "todos",
 				Description:  "Manage Todo items",
 				ExternalDocs: &openapi3.ExternalDocs{URL: "http://example.com", Description: "Find out more"},
 			},
 		},
-		ExternalDocs: openapi_godoc.ExternalDocs{Description: "Find out more", URL: "http://example.com"},
-		Components: openapi_godoc.Components{
+		ExternalDocs: openapigodoc.ExternalDocs{Description: "Find out more", URL: "http://example.com"},
+		Components: openapigodoc.Components{
 			SecuritySchemes: securitySchemas,
 		},
 	}
 
-	definition, err := openapi_godoc.GenerateOpenApiDoc(apiDefinition)
+	definition, err := openapigodoc.GenerateOpenApiDoc(apiDefinition)
 	if err != nil {
 		log.Panicf("Logging err: %s\n", err.Error())
 	}
-
-	loader := openapi3.NewLoader()
-	doc, _ := loader.LoadFromData([]byte(definition))
-	err = doc.Validate(loader.Context)
-
-	if err != nil {
-		log.Panicf("Logging err: %s\n", err.Error()) // panic if there is an error
-	}
-
 	return definition
 }
 
