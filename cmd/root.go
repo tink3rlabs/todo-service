@@ -13,12 +13,9 @@ import (
 var cfgFile string
 var rootCmd = &cobra.Command{
 	Use:   "",
-	Short: "ToDo is a reference implementaion of common service architecture",
-	Long: `ToDo is a reference implementaion of common service architecture with
-				  love by tink3rlabs.
-				  Complete documentation is available at https://github.com/tink3rlabs/todo-service`,
-	RunE:             runServer,
-	PersistentPreRun: initConfig,
+	Short: "ToDo is a reference implementaion of a common service architecture",
+	Long: `ToDo is a reference implementaion of a common service architecture brought to you with love by tink3rlabs. 
+Complete documentation is available at https://github.com/tink3rlabs/todo-service`,
 }
 
 func Execute() {
@@ -29,11 +26,14 @@ func Execute() {
 }
 
 func init() {
+	cobra.OnInitialize(initConfig)
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.todo.yaml)")
 	viper.BindPFlags(rootCmd.Flags())
+
+	rootCmd.AddCommand(serverCommand)
 }
 
-func initConfig(cmd *cobra.Command, args []string) {
+func initConfig() {
 	// Don't forget to read config either from cfgFile or from home directory!
 	if cfgFile != "" {
 		// Use config file from the flag.
