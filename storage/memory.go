@@ -5,23 +5,23 @@ import (
 	"todo-service/types"
 )
 
-var lock = &sync.Mutex{}
+var memoryAdapterLock = &sync.Mutex{}
 
 type MemoryAdapter struct {
 	todos []types.Todo
 }
 
-var instance *MemoryAdapter
+var memoryAdapterInstance *MemoryAdapter
 
 func GetMemoryAdapterInstance() *MemoryAdapter {
-	if instance == nil {
-		lock.Lock()
-		defer lock.Unlock()
-		if instance == nil {
-			instance = &MemoryAdapter{todos: []types.Todo{}}
+	if memoryAdapterInstance == nil {
+		memoryAdapterLock.Lock()
+		defer memoryAdapterLock.Unlock()
+		if memoryAdapterInstance == nil {
+			memoryAdapterInstance = &MemoryAdapter{todos: []types.Todo{}}
 		}
 	}
-	return instance
+	return memoryAdapterInstance
 }
 
 func (m *MemoryAdapter) ListTodos() []types.Todo {

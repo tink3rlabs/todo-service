@@ -27,7 +27,7 @@ func (s StorageAdapterFactory) GetInstance(adapterType StorageAdapterType) (Stor
 	case MEMORY:
 		return GetMemoryAdapterInstance(), nil
 	case SQL:
-		return nil, errors.New("SQL storage adapter not yet implemented")
+		return GetSQLAdapterInstance(), nil
 	default:
 		return nil, errors.New("this storage adapter type isn't supported")
 	}

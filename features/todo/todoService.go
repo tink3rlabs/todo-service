@@ -13,7 +13,7 @@ type TodoService struct {
 
 func NewTodoService() *TodoService {
 	s := storage.StorageAdapterFactory{}
-	storageAdapter, err := s.GetInstance(storage.MEMORY)
+	storageAdapter, err := s.GetInstance(storage.SQL)
 	if err != nil {
 		return nil
 	}
