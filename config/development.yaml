@@ -1,0 +1,7 @@
+---
+service:
+  port: 8083
+  url: http://localhost:8083
+storage:
+  type: memory
+  config: ~
