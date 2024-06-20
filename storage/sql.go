@@ -8,7 +8,9 @@ import (
 	"todo-service/types"
 
 	"github.com/spf13/viper"
+	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
@@ -32,12 +34,12 @@ func GetSQLAdapterInstance() *SQLAdapter {
 }
 
 func (s *SQLAdapter) OpenConnection() {
+	var err error
 	provider := viper.GetString("storage.provider")
+	config := viper.GetStringMapString("storage.config")
 
 	switch provider {
 	case "postgresql":
-		var err error
-		config := viper.GetStringMapString("storage.config")
 		dsn := new(bytes.Buffer)
 
 		for key, value := range config {
@@ -47,11 +49,21 @@ func (s *SQLAdapter) OpenConnection() {
 		s.DB, err = gorm.Open(postgres.New(postgres.Config{
 			DSN:                  dsn.String(),
 			PreferSimpleProtocol: true}), &gorm.Config{})
-		if err != nil {
-			log.Fatalf("failed to open a database connnection: %s", err.Error())
-		}
+	case "mysql":
+		dsn := new(bytes.Buffer)
+		fmt.Fprintf(dsn, "%s:%s@tcp(%s:%s)/%s", config["user"], config["password"], config["host"], config["port"], config["dbname"])
+
+		s.DB, err = gorm.Open(mysql.New(mysql.Config{
+			DSN: dsn.String(),
+		}), &gorm.Config{})
+	case "sqlite":
+		s.DB, err = gorm.Open(sqlite.Open(config["path"]), &gorm.Config{})
 	default:
-		log.Fatal("this SQL provider is not supported, supported providers are: postgresql and mysql")
+		log.Fatal("this SQL provider is not supported, supported providers are: postgresql, mysql, and sqlite")
+	}
+
+	if err != nil {
+		log.Fatalf("failed to open a database connnection: %s", err.Error())
 	}
 }
 

@@ -6,9 +6,19 @@ storage:
   # supported types are memory and sql
   type: memory 
   # provider: postgresql
-  # config:     
+  # config:
   #   host: host.docker.internal
   #   port: 5432
   #   user: todo
   #   password: todo
   #   dbname: todo
+  # provider: mysql
+  # config:
+  #   host: host.docker.internal
+  #   port: 3306
+  #   user: todo
+  #   password: todo
+  #   dbname: todo
+  # provider: sqlite
+  # config:
+  #   path: todo.db
