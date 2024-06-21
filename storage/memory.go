@@ -5,27 +5,27 @@ import (
 	"todo-service/types"
 )
 
-var lock = &sync.Mutex{}
+var memoryAdapterLock = &sync.Mutex{}
 
 type MemoryAdapter struct {
 	todos []types.Todo
 }
 
-var instance *MemoryAdapter
+var memoryAdapterInstance *MemoryAdapter
 
 func GetMemoryAdapterInstance() *MemoryAdapter {
-	if instance == nil {
-		lock.Lock()
-		defer lock.Unlock()
-		if instance == nil {
-			instance = &MemoryAdapter{todos: []types.Todo{}}
+	if memoryAdapterInstance == nil {
+		memoryAdapterLock.Lock()
+		defer memoryAdapterLock.Unlock()
+		if memoryAdapterInstance == nil {
+			memoryAdapterInstance = &MemoryAdapter{todos: []types.Todo{}}
 		}
 	}
-	return instance
+	return memoryAdapterInstance
 }
 
-func (m *MemoryAdapter) ListTodos() []types.Todo {
-	return m.todos
+func (m *MemoryAdapter) ListTodos() ([]types.Todo, error) {
+	return m.todos, nil
 }
 
 func (m *MemoryAdapter) GetTodo(id string) (types.Todo, error) {
@@ -37,14 +37,16 @@ func (m *MemoryAdapter) GetTodo(id string) (types.Todo, error) {
 	return types.Todo{}, ErrNotFound
 }
 
-func (m *MemoryAdapter) DeleteTodo(id string) {
+func (m *MemoryAdapter) DeleteTodo(id string) error {
 	for k, v := range m.todos {
 		if v.Id == id {
 			m.todos = append(m.todos[:k], m.todos[k+1:]...)
 		}
 	}
+	return nil
 }
 
-func (m *MemoryAdapter) CreateTodo(todo types.Todo) {
+func (m *MemoryAdapter) CreateTodo(todo types.Todo) error {
 	m.todos = append(m.todos, todo)
+	return nil
 }

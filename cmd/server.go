@@ -44,8 +44,9 @@ func initRoutes() *chi.Mux {
 		}),
 	)
 
+	t := routes.NewTodoRouter()
 	router.Route("/", func(r chi.Router) {
-		r.Mount("/todos", routes.TodoRoutes())
+		r.Mount("/todos", t.Router)
 	})
 
 	return router
@@ -88,7 +89,7 @@ func generateOpenApiSpec() []byte {
 			Contact:     &openapi3.Contact{Email: "developer@example.com"},
 			License:     &openapi3.License{Name: "Apache 2.0", URL: "http://www.apache.org/licenses/LICENSE-2.0.html"},
 		},
-		Servers: []openapigodoc.Server{{URL: "http://localhost:8080"}},
+		Servers: []openapigodoc.Server{{URL: viper.GetString("service.url")}},
 		Tags: []openapigodoc.Tag{
 			{
 				Name:         "todos",
@@ -102,7 +103,7 @@ func generateOpenApiSpec() []byte {
 		},
 	}
 
-	definition, err := openapigodoc.GenerateOpenApiDoc(apiDefinition)
+	definition, err := openapigodoc.GenerateOpenApiDoc(apiDefinition, true)
 	if err != nil {
 		log.Panicf("Logging err: %s\n", err.Error())
 	}
@@ -110,12 +111,13 @@ func generateOpenApiSpec() []byte {
 }
 
 func runServer(cmd *cobra.Command, args []string) error {
-	openApiSpec := generateOpenApiSpec()
 	router := initRoutes()
 
+	openApiSpec := generateOpenApiSpec()
 	router.Get("/api-docs", func(w http.ResponseWriter, r *http.Request) {
 		w.Write(openApiSpec)
 	})
+
 	port := viper.GetString("service.port")
 	listenAddress := fmt.Sprintf(":%s", port)
 	return http.ListenAndServe(listenAddress, router)

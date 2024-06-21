@@ -2,27 +2,34 @@ package routes
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"todo-service/features/todo"
-	"todo-service/storage"
 	"todo-service/types"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
 )
 
-func TodoRoutes() *chi.Mux {
-	router := chi.NewRouter()
-	router.Get("/{id}", GetTodo)
-	router.Delete("/{id}", DeleteTodo)
-	router.Post("/", CreateTodo)
-	router.Get("/", ListTodos)
-	return router
+type TodoRouter struct {
+	Router    *chi.Mux
+	service   *todo.TodoService
+	formatter Formatter
 }
 
-var service = todo.NewTodoService()
+func NewTodoRouter() *TodoRouter {
+	t := TodoRouter{}
+
+	router := chi.NewRouter()
+	router.Get("/{id}", t.GetTodo)
+	router.Delete("/{id}", t.DeleteTodo)
+	router.Post("/", t.CreateTodo)
+	router.Get("/", t.ListTodos)
+	t.Router = router
+	t.service = todo.NewTodoService()
+
+	return &t
+}
 
 // @openapi
 // paths:
@@ -43,8 +50,9 @@ var service = todo.NewTodoService()
 //	              type: array
 //	              items:
 //	                $ref: '#/components/schemas/Todo'
-func ListTodos(w http.ResponseWriter, r *http.Request) {
-	render.JSON(w, r, service.ListTodos())
+func (t *TodoRouter) ListTodos(w http.ResponseWriter, r *http.Request) {
+	todos, err := t.service.ListTodos()
+	t.formatter.Respond(todos, err, w, r)
 }
 
 // @openapi
@@ -73,28 +81,10 @@ func ListTodos(w http.ResponseWriter, r *http.Request) {
 //	              $ref: '#/components/schemas/Todo'
 //	      '404':
 //	         $ref: '#/components/responses/NotFound'
-func GetTodo(w http.ResponseWriter, r *http.Request) {
+func (t *TodoRouter) GetTodo(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	todo, err := service.GetTodo(id)
-	if err != nil {
-		if errors.Is(err, storage.ErrNotFound) {
-			render.Status(r, 404)
-			response := types.ErrorResponse{
-				Status: "NOT_FOUND",
-				Error:  "Todo not found",
-			}
-			render.JSON(w, r, response)
-		} else {
-			render.Status(r, 500)
-			response := types.ErrorResponse{
-				Status: "SERVER_ERROR",
-				Error:  "Encountered an unexpected server error",
-			}
-			render.JSON(w, r, response)
-		}
-	} else {
-		render.JSON(w, r, todo)
-	}
+	todo, err := t.service.GetTodo(id)
+	t.formatter.Respond(todo, err, w, r)
 }
 
 // @openapi
@@ -117,11 +107,15 @@ func GetTodo(w http.ResponseWriter, r *http.Request) {
 //	    responses:
 //	      '204':
 //	        description: successful operation
-func DeleteTodo(w http.ResponseWriter, r *http.Request) {
+func (t *TodoRouter) DeleteTodo(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	service.DeleteTodo(id)
-	render.Status(r, 204)
-	render.NoContent(w, r)
+	err := t.service.DeleteTodo(id)
+	if err != nil {
+		t.formatter.Respond(nil, err, w, r)
+	} else {
+		render.Status(r, 204)
+		render.NoContent(w, r)
+	}
 }
 
 // @openapi
@@ -143,7 +137,7 @@ func DeleteTodo(w http.ResponseWriter, r *http.Request) {
 //	    responses:
 //	      '201':
 //	        description: successful operation
-func CreateTodo(w http.ResponseWriter, r *http.Request) {
+func (t *TodoRouter) CreateTodo(w http.ResponseWriter, r *http.Request) {
 	var todoToCreate types.TodoUpdate
 	err := json.NewDecoder(r.Body).Decode(&todoToCreate)
 	if err != nil {
@@ -151,7 +145,11 @@ func CreateTodo(w http.ResponseWriter, r *http.Request) {
 		render.Status(r, 400)
 		render.JSON(w, r, []byte(errorMessage))
 	}
-	todo := service.CreateTodo(todoToCreate)
-	render.Status(r, 201)
-	render.JSON(w, r, todo)
+	todo, err := t.service.CreateTodo(todoToCreate)
+	if err != nil {
+		t.formatter.Respond(nil, err, w, r)
+	} else {
+		render.Status(r, 201)
+		render.JSON(w, r, todo)
+	}
 }

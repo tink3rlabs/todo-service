@@ -1,7 +1,24 @@
 ---
 service:
-  port: 8083
-  url: http://localhost:8083
+  port: 8080
+  url: http://localhost:8080
 storage:
-  type: memory
-  config: ~
+  # supported types are memory and sql
+  type: memory 
+  # provider: postgresql
+  # config:
+  #   host: host.docker.internal
+  #   port: 5432
+  #   user: todo
+  #   password: todo
+  #   dbname: todo
+  # provider: mysql
+  # config:
+  #   host: host.docker.internal
+  #   port: 3306
+  #   user: todo
+  #   password: todo
+  #   dbname: todo
+  # provider: sqlite
+  # config:
+  #   path: todo.db
