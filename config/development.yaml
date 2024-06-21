@@ -4,7 +4,7 @@ service:
   url: http://localhost:8080
 storage:
   # supported types are memory and sql
-  type: memory 
+  type: memory
   # provider: postgresql
   # config:
   #   host: host.docker.internal
@@ -12,6 +12,7 @@ storage:
   #   user: todo
   #   password: todo
   #   dbname: todo
+  #   schema: todo
   # provider: mysql
   # config:
   #   host: host.docker.internal
@@ -19,6 +20,7 @@ storage:
   #   user: todo
   #   password: todo
   #   dbname: todo
+  #   schema: todo
   # provider: sqlite
   # config:
   #   path: todo.db

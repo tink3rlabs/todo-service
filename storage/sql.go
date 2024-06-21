@@ -12,6 +12,8 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
+	"gorm.io/gorm/schema"
 )
 
 type SQLAdapter struct {
@@ -38,26 +40,30 @@ func (s *SQLAdapter) OpenConnection() {
 	provider := viper.GetString("storage.provider")
 	config := viper.GetStringMapString("storage.config")
 
+	gormConf := gorm.Config{
+		NamingStrategy: schema.NamingStrategy{
+			TablePrefix:   fmt.Sprintf("%s.", viper.GetString("storage.config.schema")),
+			SingularTable: false,
+		},
+		Logger: logger.Default.LogMode(logger.Silent),
+	}
+
 	switch provider {
 	case "postgresql":
 		dsn := new(bytes.Buffer)
 
 		for key, value := range config {
-			fmt.Fprintf(dsn, "%s=%s ", key, value)
+			if key != "schema" {
+				fmt.Fprintf(dsn, "%s=%s ", key, value)
+			}
 		}
-
-		s.DB, err = gorm.Open(postgres.New(postgres.Config{
-			DSN:                  dsn.String(),
-			PreferSimpleProtocol: true}), &gorm.Config{})
+		s.DB, err = gorm.Open(postgres.New(postgres.Config{DSN: dsn.String(), PreferSimpleProtocol: true}), &gormConf)
 	case "mysql":
 		dsn := new(bytes.Buffer)
 		fmt.Fprintf(dsn, "%s:%s@tcp(%s:%s)/%s", config["user"], config["password"], config["host"], config["port"], config["dbname"])
-
-		s.DB, err = gorm.Open(mysql.New(mysql.Config{
-			DSN: dsn.String(),
-		}), &gorm.Config{})
+		s.DB, err = gorm.Open(mysql.New(mysql.Config{DSN: dsn.String()}), &gormConf)
 	case "sqlite":
-		s.DB, err = gorm.Open(sqlite.Open(config["path"]), &gorm.Config{})
+		s.DB, err = gorm.Open(sqlite.Open(config["path"]), &gormConf)
 	default:
 		log.Fatal("this SQL provider is not supported, supported providers are: postgresql, mysql, and sqlite")
 	}
@@ -65,6 +71,14 @@ func (s *SQLAdapter) OpenConnection() {
 	if err != nil {
 		log.Fatalf("failed to open a database connnection: %s", err.Error())
 	}
+}
+
+func (s *SQLAdapter) Execute(statement string) error {
+	result := s.DB.Exec(statement)
+	if result.Error != nil {
+		return fmt.Errorf("failed to execute statement %s: %v", statement, result.Error)
+	}
+	return nil
 }
 
 func (s *SQLAdapter) ListTodos() ([]types.Todo, error) {

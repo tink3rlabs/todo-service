@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"errors"
 	"sync"
 	"todo-service/types"
 )
@@ -22,6 +23,10 @@ func GetMemoryAdapterInstance() *MemoryAdapter {
 		}
 	}
 	return memoryAdapterInstance
+}
+
+func (m *MemoryAdapter) Execute(s string) error {
+	return errors.New("memory adapter doesn't support executing arbitrary statements")
 }
 
 func (m *MemoryAdapter) ListTodos() ([]types.Todo, error) {

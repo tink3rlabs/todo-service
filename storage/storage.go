@@ -1,15 +1,19 @@
 package storage
 
 import (
+	"embed"
 	"errors"
+
 	"todo-service/types"
 
 	"github.com/spf13/viper"
 )
 
+var ConfigFs embed.FS
 var ErrNotFound = errors.New("not found")
 
 type StorageAdapter interface {
+	Execute(statement string) error
 	ListTodos() ([]types.Todo, error)
 	GetTodo(id string) (types.Todo, error)
 	DeleteTodo(id string) error

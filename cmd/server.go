@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"todo-service/routes"
+	"todo-service/storage"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/go-chi/chi/v5"
@@ -111,6 +112,7 @@ func generateOpenApiSpec() []byte {
 }
 
 func runServer(cmd *cobra.Command, args []string) error {
+	storage.NewDatabaseMigration().Migrate()
 	router := initRoutes()
 
 	openApiSpec := generateOpenApiSpec()
