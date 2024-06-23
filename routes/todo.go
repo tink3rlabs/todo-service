@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"todo-service/features/todo"
+	"todo-service/lib/middlewares"
 	"todo-service/types"
 
 	"github.com/go-chi/chi/v5"
@@ -15,15 +16,62 @@ type TodoRouter struct {
 	Router    *chi.Mux
 	service   *todo.TodoService
 	formatter Formatter
+	validator middlewares.Validator
+}
+
+// Define the JSON schemas as a map where the ctx is the key
+// Example: If you gave a request where yu need to check body, params and query
+// var schema = map[string]string{
+// 	"body": `{
+// 		"type": "object",
+// 		"properties": {
+// 			"summary": { "type": "string" }
+// 		},
+// 		"required": ["summary"]
+// 	}`,
+// 	"params": `{
+// 		"type": "object",
+// 		"properties": {
+// 			"id": { "type": "string" }
+// 		},
+// 		"required": ["id"]
+// 	}`,
+// 	"query": `{
+// 		"type": "object",
+// 		"properties": {
+// 			"app": { "type": "string" }
+// 		},
+// 		"required": ["app"]
+// 	}`,
+// }
+
+var createSchema = map[string]string{
+	"body": `{
+		"type": "object",
+		"properties": {
+			"summary": { "type": "string" }
+		},
+		"required": ["summary"]
+	}`,
+}
+
+var idSchema = map[string]string{
+	"params": `{
+		"type": "object",
+		"properties": {
+			"id": { "type": "string" }
+		},
+		"required": ["id"]
+	}`,
 }
 
 func NewTodoRouter() *TodoRouter {
 	t := TodoRouter{}
 
 	router := chi.NewRouter()
-	router.Get("/{id}", t.GetTodo)
-	router.Delete("/{id}", t.DeleteTodo)
-	router.Post("/", t.CreateTodo)
+	router.Get("/{id}", t.validator.ValidateRequest(idSchema, t.GetTodo))
+	router.Delete("/{id}", t.validator.ValidateRequest(idSchema, t.DeleteTodo))
+	router.Post("/", t.validator.ValidateRequest(createSchema, t.CreateTodo))
 	router.Get("/", t.ListTodos)
 	t.Router = router
 	t.service = todo.NewTodoService()
