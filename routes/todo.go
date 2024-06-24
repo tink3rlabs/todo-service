@@ -19,8 +19,8 @@ type TodoRouter struct {
 	validator middlewares.Validator
 }
 
-// Define the JSON schemas as a map where the ctx is the key
-// Example: If you gave a request where yu need to check body, params and query
+// Define the JSON schemas as a map where the ctx(body, params and query) is the key and schema is the value
+// Example: If you gave a request where you need to validate body, params and query
 // var schema = map[string]string{
 // 	"body": `{
 // 		"type": "object",

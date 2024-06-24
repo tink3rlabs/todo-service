@@ -20,8 +20,10 @@ type ValidationError struct {
 // ValidateJSON validates the JSON data against the provided  JSON schema
 // https://pkg.go.dev/github.com/xeipuuv/gojsonschema#section-readme
 
-func JSONSchemaValidator(schemaLoader gojsonschema.JSONLoader, data interface{}) (bool, []string) {
+func JSONSchemaValidator(schema string, data interface{}) (bool, []string) {
+	schemaLoader := gojsonschema.NewStringLoader(schema)
 	documentLoader := gojsonschema.NewGoLoader(data)
+
 	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
 
 	if err != nil {
@@ -40,12 +42,14 @@ func JSONSchemaValidator(schemaLoader gojsonschema.JSONLoader, data interface{})
 	return false, errors
 }
 
+// Define the JSON schemas as a map where the ctx(body, params and query) is the key and schema is the value
+// Function will get the data from request and format it in the right way as required by gojsonschema validator
+
 func (f *Validator) ValidateRequest(schemas map[string]string, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var errors []string
 
 		for target, schema := range schemas {
-			schemaLoader := gojsonschema.NewStringLoader(schema)
 			var data interface{}
 
 			switch target {
@@ -71,7 +75,7 @@ func (f *Validator) ValidateRequest(schemas map[string]string, next http.Handler
 				data = params
 			}
 
-			isValid, validationErrors := JSONSchemaValidator(schemaLoader, data)
+			isValid, validationErrors := JSONSchemaValidator(schema, data)
 			if !isValid {
 				errors = append(errors, validationErrors...)
 			}
