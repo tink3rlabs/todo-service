@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"todo-service/features/todo"
-	"todo-service/lib/middlewares"
+	"todo-service/middlewares"
 	"todo-service/types"
 
 	"github.com/go-chi/chi/v5"
