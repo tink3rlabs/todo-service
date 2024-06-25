@@ -1,0 +1,9 @@
+---
+description: Add basic schema structure
+migrations:
+  - migrate: >
+      CREATE TABLE IF NOT EXISTS todos (
+        id TEXT PRIMARY KEY,
+        summary TEXT
+      )
+    rollback: DROP TABLE IF EXISTS todos
