@@ -2,7 +2,6 @@ package routes
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"todo-service/features/todo"
 	"todo-service/middlewares"
@@ -51,7 +50,8 @@ var createSchema = map[string]string{
 		"properties": {
 			"summary": { "type": "string" }
 		},
-		"required": ["summary"]
+		"required": ["summary"],
+		"additionalProperties": false
 	}`,
 }
 
@@ -187,12 +187,7 @@ func (t *TodoRouter) DeleteTodo(w http.ResponseWriter, r *http.Request) {
 //	        description: successful operation
 func (t *TodoRouter) CreateTodo(w http.ResponseWriter, r *http.Request) {
 	var todoToCreate types.TodoUpdate
-	err := json.NewDecoder(r.Body).Decode(&todoToCreate)
-	if err != nil {
-		errorMessage := fmt.Sprintf(`{"status":"BAD_REQUEST","error":"%v"}`, err)
-		render.Status(r, 400)
-		render.JSON(w, r, []byte(errorMessage))
-	}
+	json.NewDecoder(r.Body).Decode(&todoToCreate)
 	todo, err := t.service.CreateTodo(todoToCreate)
 	if err != nil {
 		t.formatter.Respond(nil, err, w, r)

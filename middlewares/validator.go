@@ -1,8 +1,11 @@
 package middlewares
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"log"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -12,6 +15,13 @@ import (
 
 type Validator struct{}
 
+// ValidationResult holds the result of the gojsonschema validator
+type ValidationResult struct {
+	Result bool     `json:"result"`
+	Error  []string `json:"error"`
+}
+
+// ValidationError holds the error format for ValidateRequest Middleware
 type ValidationError struct {
 	Status string   `json:"status"`
 	Error  []string `json:"error"`
@@ -20,18 +30,22 @@ type ValidationError struct {
 // ValidateJSON validates the JSON data against the provided  JSON schema
 // https://pkg.go.dev/github.com/xeipuuv/gojsonschema#section-readme
 
-func JSONSchemaValidator(schema string, data interface{}) (bool, []string) {
+func JSONSchemaValidator(schema string, data interface{}) (ValidationResult, error) {
 	schemaLoader := gojsonschema.NewStringLoader(schema)
 	documentLoader := gojsonschema.NewGoLoader(data)
 
 	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
 
 	if err != nil {
-		return false, []string{err.Error()}
+		log.Println("gojsonschema validation function failed", err)
+		return ValidationResult{}, err
 	}
 
 	if result.Valid() {
-		return true, nil
+		return ValidationResult{
+			Result: true,
+			Error:  []string{},
+		}, nil
 	}
 
 	var errors []string
@@ -39,7 +53,10 @@ func JSONSchemaValidator(schema string, data interface{}) (bool, []string) {
 		errors = append(errors, desc.String())
 	}
 
-	return false, errors
+	return ValidationResult{
+		Result: false,
+		Error:  errors,
+	}, nil
 }
 
 // Define the JSON schemas as a map where the ctx(body, params and query) is the key and schema is the value
@@ -47,15 +64,23 @@ func JSONSchemaValidator(schema string, data interface{}) (bool, []string) {
 
 func (f *Validator) ValidateRequest(schemas map[string]string, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var errors []string
+		var allErrors []string
 
 		for target, schema := range schemas {
 			var data interface{}
 
 			switch target {
 			case "body":
-				if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
-					errors = append(errors, fmt.Sprintf("Invalid JSON body: %v", err))
+				bodyBytes, err := io.ReadAll(io.TeeReader(r.Body, &bytes.Buffer{}))
+				if err != nil {
+					allErrors = append(allErrors, fmt.Sprintf("Error reading body: %v", err))
+					continue
+				}
+				// Reset body for next handler
+				r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+
+				if err := json.Unmarshal(bodyBytes, &data); err != nil {
+					allErrors = append(allErrors, fmt.Sprintf("Invalid JSON body: %v", err))
 					continue
 				}
 			case "query":
@@ -75,22 +100,32 @@ func (f *Validator) ValidateRequest(schemas map[string]string, next http.Handler
 				data = params
 			}
 
-			isValid, validationErrors := JSONSchemaValidator(schema, data)
-			if !isValid {
-				errors = append(errors, validationErrors...)
+			result, err := JSONSchemaValidator(schema, data)
+
+			if !result.Result {
+				allErrors = append(allErrors, result.Error...)
+			}
+
+			if err != nil {
+				validationError := ValidationError{
+					Status: "SERVER_ERROR",
+					Error:  []string{"Encountered an unexpected server error: " + err.Error()},
+				}
+				render.Status(r, http.StatusBadRequest)
+				render.JSON(w, r, validationError)
+				return
 			}
 		}
 
-		if len(errors) > 0 {
+		if len(allErrors) > 0 {
 			validationError := ValidationError{
 				Status: "INVALID_RESOURCE",
-				Error:  errors,
+				Error:  allErrors,
 			}
 			render.Status(r, http.StatusBadRequest)
 			render.JSON(w, r, validationError)
 			return
 		}
-
 		next.ServeHTTP(w, r)
 	}
 }
