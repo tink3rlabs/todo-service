@@ -102,10 +102,13 @@ func (f *Validator) ValidateRequest(schemas map[string]string, next http.Handler
 
 			result, err := JSONSchemaValidator(schema, data)
 
+			// Validate all the given schemas (body, id, and query) and return a combined error message
+			// that includes errors found in each schema
 			if !result.Result {
 				allErrors = append(allErrors, result.Error...)
 			}
 
+			// If the gojsonschema validator function has some internal error
 			if err != nil {
 				validationError := ValidationError{
 					Status: "SERVER_ERROR",
@@ -119,7 +122,7 @@ func (f *Validator) ValidateRequest(schemas map[string]string, next http.Handler
 
 		if len(allErrors) > 0 {
 			validationError := ValidationError{
-				Status: "INVALID_RESOURCE",
+				Status: "BAD_REQUEST",
 				Error:  allErrors,
 			}
 			render.Status(r, http.StatusBadRequest)
