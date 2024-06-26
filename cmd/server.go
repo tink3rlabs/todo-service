@@ -113,6 +113,7 @@ func generateOpenApiSpec() []byte {
 
 func runServer(cmd *cobra.Command, args []string) error {
 	storage.NewDatabaseMigration().Migrate()
+	storage.NewLeaderElection().Start()
 	router := initRoutes()
 
 	openApiSpec := generateOpenApiSpec()

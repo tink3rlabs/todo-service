@@ -135,7 +135,7 @@ func (m *DatabaseMigration) runMigrations(migrations map[string]MigrationFile) {
 		log.Fatalf("failed to get latest migration: %v", err)
 	}
 
-	//iterating over a map is randomized so we need to make sure we use the correct order of mifrations
+	//iterating over a map is randomized so we need to make sure we use the correct order of migrations
 	keys := make([]string, 0, len(migrations))
 	for k := range migrations {
 		keys = append(keys, k)

@@ -24,3 +24,6 @@ storage:
   # provider: sqlite
   # config:
   #   path: todo.db
+leadership:
+  # specify the interval to update node heartbeat
+  heartbeat_interval: 60s
