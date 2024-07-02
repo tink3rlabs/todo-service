@@ -18,3 +18,6 @@ staticcheck:
 test:
 	go test -race -v -timeout 30s ./...
 
+.PHONY: release-notes
+release-notes:
+	echo "Releasing ...."
