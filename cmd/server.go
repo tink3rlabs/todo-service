@@ -117,7 +117,9 @@ func runServer(cmd *cobra.Command, args []string) error {
 
 	openApiSpec := generateOpenApiSpec()
 	router.Get("/api-docs", func(w http.ResponseWriter, r *http.Request) {
-		w.Write(openApiSpec)
+		if _, responseFailed := w.Write(openApiSpec); responseFailed != nil {
+			log.Printf("failed responding to /api-docs: %v", responseFailed)
+		}
 	})
 
 	port := viper.GetString("service.port")
