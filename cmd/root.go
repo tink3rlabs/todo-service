@@ -28,8 +28,10 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.todo.yaml)")
-	viper.BindPFlags(rootCmd.Flags())
-
+	if viperBindFlagsErr := viper.BindPFlags(rootCmd.Flags()); viperBindFlagsErr != nil {
+		fmt.Println(viperBindFlagsErr)
+		os.Exit(1)
+	}
 	rootCmd.AddCommand(serverCommand)
 }
 

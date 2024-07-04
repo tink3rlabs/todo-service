@@ -187,7 +187,11 @@ func (t *TodoRouter) DeleteTodo(w http.ResponseWriter, r *http.Request) {
 //	        description: successful operation
 func (t *TodoRouter) CreateTodo(w http.ResponseWriter, r *http.Request) {
 	var todoToCreate types.TodoUpdate
-	json.NewDecoder(r.Body).Decode(&todoToCreate)
+	decodeErr := json.NewDecoder(r.Body).Decode(&todoToCreate)
+	if decodeErr != nil {
+		t.formatter.Respond(nil, decodeErr, w, r)
+	}
+
 	todo, err := t.service.CreateTodo(todoToCreate)
 	if err != nil {
 		t.formatter.Respond(nil, err, w, r)
