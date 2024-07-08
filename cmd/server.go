@@ -6,6 +6,10 @@ import (
 	"log"
 	"net/http"
 
+	"todo-service/middlewares"
+	"todo-service/routes"
+	"todo-service/storage"
+
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -34,9 +38,10 @@ func initRoutes() *chi.Mux {
 	router := chi.NewRouter()
 	router.Use(
 		render.SetContentType(render.ContentTypeJSON), // Set content-Type headers as application/json
-		middleware.Logger,          // Log API request calls
-		middleware.RedirectSlashes, // Redirect slashes to no slash URL versions
-		middleware.Recoverer,       // Recover from panics without crashing server
+		middleware.Logger,                   // Log API request calls
+		middleware.RedirectSlashes,          // Redirect slashes to no slash URL versions
+		middleware.Recoverer,                // Recover from panics without crashing server
+		middlewares.ApplicationErrorHandler, // Handle and log errors
 		cors.Handler(cors.Options{
 			AllowedOrigins:   []string{"https://*", "http://*"},
 			AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
@@ -114,11 +119,13 @@ func generateOpenApiSpec() []byte {
 }
 
 func runServer(cmd *cobra.Command, args []string) error {
+	log.Printf("Setting up database")
 	storage.NewDatabaseMigration().Migrate()
 	leadership.NewLeaderElection().Start()
-
+	log.Printf("Setting up routes")
 	router := initRoutes()
 
+	log.Printf("Generating open api spec")
 	openApiSpec := generateOpenApiSpec()
 	router.Get("/api-docs", func(w http.ResponseWriter, r *http.Request) {
 		if _, responseFailed := w.Write(openApiSpec); responseFailed != nil {
@@ -128,5 +135,7 @@ func runServer(cmd *cobra.Command, args []string) error {
 
 	port := viper.GetString("service.port")
 	listenAddress := fmt.Sprintf(":%s", port)
+
+	log.Printf(fmt.Sprintf("Starting server at %s", listenAddress))
 	return http.ListenAndServe(listenAddress, router)
 }
