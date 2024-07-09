@@ -1,4 +1,4 @@
-package routes
+package middlewares
 
 import (
 	"errors"
@@ -10,9 +10,23 @@ import (
 	"todo-service/types"
 )
 
-type Formatter struct{}
+type Responder struct{}
 
-func (f *Formatter) Respond(object interface{}, err error, w http.ResponseWriter, r *http.Request) {
+func (f *Responder) Respond(object interface{}, err error, w http.ResponseWriter, r *http.Request, code int) {
+
+	// No content
+	if object == nil && err == nil {
+		render.Status(r, code)
+		render.NoContent(w, r)
+		return
+	}
+
+	// // Switch errors
+	// switch t := err.(type) {
+	// default:
+	// 	fmt.Printf("Don't know type %T\n", t)
+	// }
+
 	if errors.Is(err, storage.ErrNotFound) {
 		render.Status(r, 404)
 		response := types.ErrorResponse{
@@ -21,8 +35,9 @@ func (f *Formatter) Respond(object interface{}, err error, w http.ResponseWriter
 		}
 		render.JSON(w, r, response)
 		return
-	}
 
+	}
+	// Any other error
 	if err != nil {
 		render.Status(r, 500)
 		response := types.ErrorResponse{
@@ -33,5 +48,6 @@ func (f *Formatter) Respond(object interface{}, err error, w http.ResponseWriter
 		return
 	}
 
+	render.Status(r, code)
 	render.JSON(w, r, object)
 }
