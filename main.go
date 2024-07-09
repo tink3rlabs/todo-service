@@ -4,7 +4,7 @@ import (
 	"embed"
 
 	"todo-service/cmd"
-	"todo-service/storage"
+	"todo-service/internal/storage"
 )
 
 //go:embed config

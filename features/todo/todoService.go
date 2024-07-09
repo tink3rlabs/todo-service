@@ -2,10 +2,11 @@ package todo
 
 import (
 	"log"
-	"todo-service/storage"
-	"todo-service/types"
 
 	"github.com/google/uuid"
+
+	"todo-service/internal/storage"
+	"todo-service/types"
 )
 
 type TodoService struct {

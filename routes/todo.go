@@ -3,12 +3,13 @@ package routes
 import (
 	"encoding/json"
 	"net/http"
-	"todo-service/features/todo"
-	"todo-service/middlewares"
-	"todo-service/types"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
+
+	"todo-service/features/todo"
+	"todo-service/internal/middlewares"
+	"todo-service/types"
 )
 
 type TodoRouter struct {

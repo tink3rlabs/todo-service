@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"todo-service/routes"
-	"todo-service/storage"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/go-chi/chi/v5"
@@ -16,6 +14,10 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	openapigodoc "github.com/tink3rlabs/openapi-godoc"
+
+	"todo-service/internal/leadership"
+	"todo-service/internal/storage"
+	"todo-service/routes"
 )
 
 var serverCommand = &cobra.Command{
@@ -113,7 +115,8 @@ func generateOpenApiSpec() []byte {
 
 func runServer(cmd *cobra.Command, args []string) error {
 	storage.NewDatabaseMigration().Migrate()
-	storage.NewLeaderElection().Start()
+	leadership.NewLeaderElection().Start()
+
 	router := initRoutes()
 
 	openApiSpec := generateOpenApiSpec()

@@ -1,4 +1,4 @@
-package storage
+package leadership
 
 import (
 	"fmt"
@@ -8,12 +8,14 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/spf13/viper"
+
+	"todo-service/internal/storage"
 )
 
 var leaderElectionLock = &sync.Mutex{}
 var leaderElectionInstance *LeaderElection
 
-const DEFAULT_HEARTBEAT_INTERVAL = 60 * time.Second
+const DEFAULT_HEARTBEAT = 60 * time.Second
 
 // LeaderElection provides methods for electing a leader out of eligible cluster members
 type LeaderElection struct {
@@ -21,7 +23,7 @@ type LeaderElection struct {
 	Leader            Member
 	storageType       string
 	storageProvider   string
-	storage           StorageAdapter
+	storage           storage.StorageAdapter
 	heartbeatInterval time.Duration
 }
 
@@ -38,15 +40,14 @@ func NewLeaderElection() *LeaderElection {
 		leaderElectionLock.Lock()
 		defer leaderElectionLock.Unlock()
 		if leaderElectionInstance == nil {
-			s := StorageAdapterFactory{}
-			storageAdapter, err := s.GetInstance(DEFAULT)
+			s := storage.StorageAdapterFactory{}
+			storageAdapter, err := s.GetInstance(storage.DEFAULT)
 			if err != nil {
 				log.Fatalf("failed to create LeaderElection instance: %s", err.Error())
-				return nil
 			}
-			heartbeatInterval := viper.GetDuration("leadership.heartbeat_interval")
+			heartbeatInterval := viper.GetDuration("leadership.heartbeat")
 			if heartbeatInterval == 0 {
-				heartbeatInterval = DEFAULT_HEARTBEAT_INTERVAL
+				heartbeatInterval = DEFAULT_HEARTBEAT
 			}
 			leaderElectionInstance = &LeaderElection{
 				Id:                uuid.NewString(),
@@ -64,11 +65,11 @@ func NewLeaderElection() *LeaderElection {
 func (l *LeaderElection) createLeadershipTable() error {
 	var statement string
 	switch l.storageProvider {
-	case "postgresql":
+	case string(storage.POSTGRESQL):
 		statement = "CREATE TABLE IF NOT EXISTS members (id TEXT PRIMARY KEY, registration NUMERIC, heartbeat NUMERIC)"
-	case "mysql":
+	case string(storage.MYSQL):
 		statement = "CREATE TABLE IF NOT EXISTS members (id VARCHAR(50) PRIMARY KEY, registration BIGINT, heartbeat BIGINT)"
-	case "sqlite":
+	case string(storage.SQLITE):
 		statement = "CREATE TABLE IF NOT EXISTS members (id TEXT PRIMARY KEY, registration INTEGER, heartbeat INTEGER)"
 	}
 	return l.storage.Execute(statement)
@@ -170,9 +171,9 @@ func (l *LeaderElection) getLeader() (Member, error) {
 	var member Member
 	var err error
 	switch l.storageType {
-	case "sql":
+	case string(storage.SQL):
 		statement := fmt.Sprintf(`SELECT * FROM members WHERE id='%s'`, l.Leader.Id)
-		a := GetSQLAdapterInstance()
+		a := storage.GetSQLAdapterInstance()
 		result := a.DB.Raw(statement).Scan(&member)
 		if result.Error != nil {
 			err = fmt.Errorf("failed to get leader: %v", result.Error)
@@ -186,9 +187,9 @@ func (l *LeaderElection) Members() ([]Member, error) {
 	var members []Member
 	var err error
 	switch l.storageType {
-	case "sql":
+	case string(storage.SQL):
 		statement := "SELECT * FROM members"
-		a := GetSQLAdapterInstance()
+		a := storage.GetSQLAdapterInstance()
 		result := a.DB.Raw(statement).Scan(&members)
 		if result.Error != nil {
 			err = fmt.Errorf("failed to list cluster members: %v", result.Error)
@@ -199,7 +200,7 @@ func (l *LeaderElection) Members() ([]Member, error) {
 
 // Start triggers a new leader election
 func (l *LeaderElection) Start() {
-	if l.storageType == "memory" {
+	if l.storageType == string(storage.MEMORY) {
 		log.Println("using memory storage adapter, leader election is only supported with persistent storage")
 	} else {
 		log.Println("using a persistent storage adapter, starting leader election")
