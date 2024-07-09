@@ -6,9 +6,9 @@ import (
 	"log"
 	"net/http"
 
-	"todo-service/middlewares"
+	"todo-service/internal/leadership"
+	"todo-service/internal/storage"
 	"todo-service/routes"
-	"todo-service/storage"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/go-chi/chi/v5"
@@ -18,10 +18,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	openapigodoc "github.com/tink3rlabs/openapi-godoc"
-
-	"todo-service/internal/leadership"
-	"todo-service/internal/storage"
-	"todo-service/routes"
 )
 
 var serverCommand = &cobra.Command{
@@ -38,10 +34,9 @@ func initRoutes() *chi.Mux {
 	router := chi.NewRouter()
 	router.Use(
 		render.SetContentType(render.ContentTypeJSON), // Set content-Type headers as application/json
-		middleware.Logger,                   // Log API request calls
-		middleware.RedirectSlashes,          // Redirect slashes to no slash URL versions
-		middleware.Recoverer,                // Recover from panics without crashing server
-		middlewares.ApplicationErrorHandler, // Handle and log errors
+		middleware.Logger,          // Log API request calls
+		middleware.RedirectSlashes, // Redirect slashes to no slash URL versions
+		middleware.Recoverer,       // Recover from panics without crashing server
 		cors.Handler(cors.Options{
 			AllowedOrigins:   []string{"https://*", "http://*"},
 			AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},

@@ -1,4 +1,4 @@
-package middlewares
+package handlers
 
 import (
 	"bytes"
@@ -121,6 +121,7 @@ func (f *Validator) ValidateRequest(schemas map[string]string, next http.Handler
 		}
 
 		if len(allErrors) > 0 {
+
 			validationError := ValidationError{
 				Status: "BAD_REQUEST",
 				Error:  allErrors,
