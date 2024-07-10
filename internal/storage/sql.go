@@ -49,7 +49,7 @@ func (s *SQLAdapter) OpenConnection() {
 	}
 
 	switch provider {
-	case "postgresql":
+	case string(POSTGRESQL):
 		dsn := new(bytes.Buffer)
 
 		for key, value := range config {
@@ -58,18 +58,18 @@ func (s *SQLAdapter) OpenConnection() {
 			}
 		}
 		s.DB, err = gorm.Open(postgres.New(postgres.Config{DSN: dsn.String(), PreferSimpleProtocol: true}), &gormConf)
-	case "mysql":
+	case string(MYSQL):
 		dsn := new(bytes.Buffer)
 		fmt.Fprintf(dsn, "%s:%s@tcp(%s:%s)/%s", config["user"], config["password"], config["host"], config["port"], config["dbname"])
 		s.DB, err = gorm.Open(mysql.New(mysql.Config{DSN: dsn.String()}), &gormConf)
-	case "sqlite":
-		s.DB, err = gorm.Open(sqlite.Open(config["path"]), &gormConf)
+	case string(SQLITE):
+		s.DB, err = gorm.Open(sqlite.Open(config["path"]), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 	default:
 		log.Fatal("this SQL provider is not supported, supported providers are: postgresql, mysql, and sqlite")
 	}
 
 	if err != nil {
-		log.Fatalf("failed to open a database connnection: %s", err.Error())
+		log.Fatalf("failed to open a database connection: %s", err.Error())
 	}
 }
 

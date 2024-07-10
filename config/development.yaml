@@ -23,4 +23,7 @@ storage:
   #   schema: todo
   # provider: sqlite
   # config:
-  #   path: todo.db
+  #   path: todo.sqlite
+leadership:
+  # specify the interval to update node heartbeat
+  heartbeat: 60s

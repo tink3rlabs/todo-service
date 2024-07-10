@@ -3,10 +3,11 @@ package routes
 import (
 	"errors"
 	"net/http"
-	"todo-service/storage"
-	"todo-service/types"
 
 	"github.com/go-chi/render"
+
+	"todo-service/internal/storage"
+	"todo-service/types"
 )
 
 type Formatter struct{}

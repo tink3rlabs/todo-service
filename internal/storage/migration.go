@@ -68,7 +68,7 @@ func (m *DatabaseMigration) getMigrationFiles() (map[string]MigrationFile, error
 }
 
 func (m *DatabaseMigration) createSchema() error {
-	if m.storageProvider != "sqlite" {
+	if m.storageProvider != string(SQLITE) {
 		statement := fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %s", viper.GetString("storage.config.schema"))
 		return m.storage.Execute(statement)
 	}
@@ -78,11 +78,11 @@ func (m *DatabaseMigration) createSchema() error {
 func (m *DatabaseMigration) createMigrationTable() error {
 	var statement string
 	switch m.storageProvider {
-	case "postgresql":
+	case string(POSTGRESQL):
 		statement = "CREATE TABLE IF NOT EXISTS migrations (id NUMERIC PRIMARY KEY, name TEXT, description TEXT, timestamp NUMERIC)"
-	case "mysql":
+	case string(MYSQL):
 		statement = "CREATE TABLE IF NOT EXISTS migrations (id INT PRIMARY KEY, name TEXT, description TEXT, timestamp BIGINT)"
-	case "sqlite":
+	case string(SQLITE):
 		statement = "CREATE TABLE IF NOT EXISTS migrations (id INTEGER PRIMARY KEY, name TEXT, description TEXT, timestamp INTEGER)"
 	}
 	return m.storage.Execute(statement)
@@ -97,7 +97,7 @@ func (m *DatabaseMigration) getLatestMigration() (int, error) {
 	var statement string
 	var latestMigration int
 	switch m.storageType {
-	case "sql":
+	case string(SQL):
 		statement = "SELECT max(id) from migrations"
 		a := GetSQLAdapterInstance()
 		result := a.DB.Raw(statement).Scan(&latestMigration)
@@ -135,7 +135,7 @@ func (m *DatabaseMigration) runMigrations(migrations map[string]MigrationFile) {
 		log.Fatalf("failed to get latest migration: %v", err)
 	}
 
-	//iterating over a map is randomized so we need to make sure we use the correct order of mifrations
+	//iterating over a map is randomized so we need to make sure we use the correct order of migrations
 	keys := make([]string, 0, len(migrations))
 	for k := range migrations {
 		keys = append(keys, k)
@@ -176,7 +176,7 @@ func (m *DatabaseMigration) runMigrations(migrations map[string]MigrationFile) {
 }
 
 func (m *DatabaseMigration) Migrate() {
-	if m.storageType == "memory" {
+	if m.storageType == string(MEMORY) {
 		log.Println("using memory storage adapter, migrations are not needed")
 	} else {
 		log.Println("using a persistent storage adapter, executing migrations")

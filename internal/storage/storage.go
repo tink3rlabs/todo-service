@@ -21,12 +21,19 @@ type StorageAdapter interface {
 }
 
 type StorageAdapterType string
+type StorageProviders string
 type StorageAdapterFactory struct{}
 
 const (
 	DEFAULT StorageAdapterType = "default"
 	MEMORY  StorageAdapterType = "memory"
 	SQL     StorageAdapterType = "sql"
+)
+
+const (
+	POSTGRESQL StorageProviders = "postgresql"
+	MYSQL      StorageProviders = "mysql"
+	SQLITE     StorageProviders = "sqlite"
 )
 
 func (s StorageAdapterFactory) GetInstance(adapterType StorageAdapterType) (StorageAdapter, error) {
