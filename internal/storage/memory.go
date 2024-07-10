@@ -1,8 +1,11 @@
 package storage
 
 import (
+	"encoding/base64"
 	"errors"
+	"fmt"
 	"sync"
+
 	"todo-service/types"
 )
 
@@ -29,8 +32,29 @@ func (m *MemoryAdapter) Execute(s string) error {
 	return errors.New("memory adapter doesn't support executing arbitrary statements")
 }
 
-func (m *MemoryAdapter) ListTodos() ([]types.Todo, error) {
-	return m.todos, nil
+func (m *MemoryAdapter) ListTodos(limit int, cursor string) ([]types.Todo, string, error) {
+	todos := []types.Todo{}
+	nextId := ""
+
+	id, err := base64.StdEncoding.DecodeString(cursor)
+	if err != nil {
+		return todos, "", fmt.Errorf("failed to decode next cursor: %v", err)
+	}
+
+	// Get one extra item to be able to set that item's Id as the cursor for the next request
+	for _, v := range m.todos {
+		if (v.Id >= string(id)) && len(todos) < limit+1 {
+			todos = append(todos, v)
+		}
+	}
+
+	// If we have a full list, set the Id of the extra last item as the next cursor and remove it from the list of items to return
+	if len(todos) == limit+1 {
+		nextId = base64.StdEncoding.EncodeToString([]byte(todos[len(todos)-1].Id))
+		todos = todos[:len(todos)-1]
+	}
+
+	return todos, nextId, nil
 }
 
 func (m *MemoryAdapter) GetTodo(id string) (types.Todo, error) {
