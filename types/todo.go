@@ -10,7 +10,7 @@ package types
 //	      id:
 //	        type: string
 //	        description: The Todo's identifier
-//	        example: todo-1
+//	        example: 01909c42-cc90-75dc-a943-2d87a16e787d
 //	      summary:
 //	        type: string
 //	        description: The Todo's summary
@@ -33,4 +33,24 @@ type Todo struct {
 //	        example: Pick up the groceries
 type TodoUpdate struct {
 	Summary string `json:"summary"`
+}
+
+// @openapi
+// components:
+//
+//	schemas:
+//	  TodoList:
+//	    type: object
+//	    properties:
+//	      todos:
+//	        type: array
+//	        items:
+//	          $ref: '#/components/schemas/Todo'
+//	      next:
+//	        type: string
+//	        description: An identifier to use when requesting the next set of todos
+//	        example: MDE5MDlhOGUtNjcwNi03NWY1LWJjMjUtNWM0MjY0ZjUwZTQ1
+type TodoList struct {
+	Todos []Todo `json:"todos"`
+	Next  string `json:"next"`
 }

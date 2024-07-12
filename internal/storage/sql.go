@@ -2,10 +2,10 @@ package storage
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"log"
 	"sync"
-	"todo-service/types"
 
 	"github.com/spf13/viper"
 	"gorm.io/driver/mysql"
@@ -14,6 +14,8 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 	"gorm.io/gorm/schema"
+
+	"todo-service/types"
 )
 
 type SQLAdapter struct {
@@ -81,10 +83,25 @@ func (s *SQLAdapter) Execute(statement string) error {
 	return nil
 }
 
-func (s *SQLAdapter) ListTodos() ([]types.Todo, error) {
+func (s *SQLAdapter) ListTodos(limit int, cursor string) ([]types.Todo, string, error) {
 	todos := []types.Todo{}
-	result := s.DB.Find(&todos)
-	return todos, result.Error
+	nextId := ""
+
+	id, err := base64.StdEncoding.DecodeString(cursor)
+	if err != nil {
+		return todos, "", fmt.Errorf("failed to decode next cursor: %v", err)
+	}
+
+	// Get one extra item to be able to set that item's Id as the cursor for the next request
+	result := s.DB.Limit(limit+1).Where("id >= ?", string(id)).Find(&todos)
+
+	// If we have a full list, set the Id of the extra last item as the next cursor and remove it from the list of items to return
+	if len(todos) == limit+1 {
+		nextId = base64.StdEncoding.EncodeToString([]byte(todos[len(todos)-1].Id))
+		todos = todos[:len(todos)-1]
+	}
+
+	return todos, nextId, result.Error
 }
 
 func (s *SQLAdapter) GetTodo(id string) (types.Todo, error) {

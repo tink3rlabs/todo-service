@@ -3,6 +3,7 @@ package routes
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
@@ -89,19 +90,37 @@ func NewTodoRouter() *TodoRouter {
 //	      - todos
 //	    summary: Get all Todos
 //	    description: Returns all Todos
-//	    operationId: getTodos
+//	    operationId: listTodos
+//	    parameters:
+//	      - name: limit
+//	        in: query
+//	        description: The number of todo items to return (defaults to 10)
+//	        required: false
+//	        schema:
+//	          type: number
+//	      - name: next
+//	        in: query
+//	        description: The next page identifier
+//	        required: false
+//	        schema:
+//	          type: string
 //	    responses:
 //	      '200':
 //	        description: successful operation
 //	        content:
 //	          application/json:
 //	            schema:
-//	              type: array
-//	              items:
-//	                $ref: '#/components/schemas/Todo'
+//	              $ref: '#/components/schemas/TodoList'
 func (t *TodoRouter) ListTodos(w http.ResponseWriter, r *http.Request) {
-	todos, err := t.service.ListTodos()
-	t.formatter.Respond(todos, err, w, r)
+	cursor := r.URL.Query().Get("next")
+
+	limit, err := strconv.ParseInt(r.URL.Query().Get("limit"), 10, 64)
+	if (err != nil) || limit <= 0 {
+		limit = 10
+	}
+
+	todos, next, err := t.service.ListTodos(int(limit), cursor)
+	t.formatter.Respond(types.TodoList{Todos: todos, Next: next}, err, w, r)
 }
 
 // @openapi
