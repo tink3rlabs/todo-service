@@ -6,6 +6,10 @@ import (
 	"log"
 	"net/http"
 
+	"todo-service/internal/leadership"
+	"todo-service/internal/storage"
+	"todo-service/routes"
+
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -14,10 +18,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	openapigodoc "github.com/tink3rlabs/openapi-godoc"
-
-	"todo-service/internal/leadership"
-	"todo-service/internal/storage"
-	"todo-service/routes"
 )
 
 var serverCommand = &cobra.Command{
@@ -114,11 +114,13 @@ func generateOpenApiSpec() []byte {
 }
 
 func runServer(cmd *cobra.Command, args []string) error {
+	log.Printf("Setting up database")
 	storage.NewDatabaseMigration().Migrate()
 	leadership.NewLeaderElection().Start()
-
+	log.Printf("Setting up routes")
 	router := initRoutes()
 
+	log.Printf("Generating open api spec")
 	openApiSpec := generateOpenApiSpec()
 	router.Get("/api-docs", func(w http.ResponseWriter, r *http.Request) {
 		if _, responseFailed := w.Write(openApiSpec); responseFailed != nil {
@@ -128,5 +130,7 @@ func runServer(cmd *cobra.Command, args []string) error {
 
 	port := viper.GetString("service.port")
 	listenAddress := fmt.Sprintf(":%s", port)
+
+	log.Printf(fmt.Sprintf("Starting server at %s", listenAddress))
 	return http.ListenAndServe(listenAddress, router)
 }

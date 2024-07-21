@@ -2,11 +2,11 @@ package routes
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/render"
 
 	"todo-service/features/todo"
 	"todo-service/internal/middlewares"
@@ -16,7 +16,7 @@ import (
 type TodoRouter struct {
 	Router    *chi.Mux
 	service   *todo.TodoService
-	formatter Formatter
+	responder middlewares.Responder
 	validator middlewares.Validator
 }
 
@@ -120,7 +120,7 @@ func (t *TodoRouter) ListTodos(w http.ResponseWriter, r *http.Request) {
 	}
 
 	todos, next, err := t.service.ListTodos(int(limit), cursor)
-	t.formatter.Respond(types.TodoList{Todos: todos, Next: next}, err, w, r)
+	t.responder.Respond(types.TodoList{Todos: todos, Next: next}, err, w, r, 200)
 }
 
 // @openapi
@@ -152,7 +152,9 @@ func (t *TodoRouter) ListTodos(w http.ResponseWriter, r *http.Request) {
 func (t *TodoRouter) GetTodo(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	todo, err := t.service.GetTodo(id)
-	t.formatter.Respond(todo, err, w, r)
+	log.Printf("Logging an error in the routes")
+
+	t.responder.Respond(todo, err, w, r, 200)
 }
 
 // @openapi
@@ -178,12 +180,7 @@ func (t *TodoRouter) GetTodo(w http.ResponseWriter, r *http.Request) {
 func (t *TodoRouter) DeleteTodo(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	err := t.service.DeleteTodo(id)
-	if err != nil {
-		t.formatter.Respond(nil, err, w, r)
-	} else {
-		render.Status(r, 204)
-		render.NoContent(w, r)
-	}
+	t.responder.Respond(nil, err, w, r, 204)
 }
 
 // @openapi
@@ -209,14 +206,9 @@ func (t *TodoRouter) CreateTodo(w http.ResponseWriter, r *http.Request) {
 	var todoToCreate types.TodoUpdate
 	decodeErr := json.NewDecoder(r.Body).Decode(&todoToCreate)
 	if decodeErr != nil {
-		t.formatter.Respond(nil, decodeErr, w, r)
+		t.responder.Respond(nil, decodeErr, w, r, 400)
 	}
 
 	todo, err := t.service.CreateTodo(todoToCreate)
-	if err != nil {
-		t.formatter.Respond(nil, err, w, r)
-	} else {
-		render.Status(r, 201)
-		render.JSON(w, r, todo)
-	}
+	t.responder.Respond(todo, err, w, r, 201)
 }

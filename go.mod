@@ -12,8 +12,8 @@ require (
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/viper v1.19.0
 	github.com/tink3rlabs/openapi-godoc v0.2.0
-	gopkg.in/yaml.v3 v3.0.1
 	github.com/xeipuuv/gojsonschema v1.2.0
+	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/driver/mysql v1.5.7
 	gorm.io/driver/postgres v1.5.9
 	gorm.io/driver/sqlite v1.5.6
