@@ -15,12 +15,14 @@ import (
 var leaderElectionLock = &sync.Mutex{}
 var leaderElectionInstance *LeaderElection
 
+const RESULT_ELECTED = "elected"
 const DEFAULT_HEARTBEAT = 60 * time.Second
 
 // LeaderElection provides methods for electing a leader out of eligible cluster members
 type LeaderElection struct {
 	Id                string
 	Leader            Member
+	Results           chan string
 	storageType       string
 	storageProvider   string
 	storage           storage.StorageAdapter
@@ -51,6 +53,7 @@ func NewLeaderElection() *LeaderElection {
 			}
 			leaderElectionInstance = &LeaderElection{
 				Id:                uuid.NewString(),
+				Results:           make(chan string),
 				storage:           storageAdapter,
 				storageType:       viper.GetString("storage.type"),
 				storageProvider:   viper.GetString("storage.provider"),
@@ -116,7 +119,7 @@ func (l *LeaderElection) monitorLeader() {
 			if diff >= acceptableInterval {
 				log.Printf("leader %s is healthy", l.Leader.Id)
 			} else {
-				log.Printf("leader %s hasn't updated its heartbeat in %v starting reelection", l.Leader.Id, diff)
+				log.Printf("leader %s hasn't updated its heartbeat in %v starting re-election", l.Leader.Id, diff)
 				err = l.electLeader(true)
 
 				if err != nil {
@@ -125,6 +128,8 @@ func (l *LeaderElection) monitorLeader() {
 
 				if l.Id == l.Leader.Id {
 					log.Println("I am the new leader")
+					// Publish election results
+					go func() { l.Results <- RESULT_ELECTED }()
 					break
 				} else {
 					log.Printf("detected a change in leadership, new leader is %v - monitoring it", l.Leader.Id)
@@ -140,7 +145,7 @@ func (l *LeaderElection) electLeader(reElection bool) error {
 	leader := l.Leader
 
 	if reElection {
-		log.Println("this is a reelection removing existing leader")
+		log.Println("this is a re-election removing existing leader")
 		err := l.removeMember(l.Leader.Id)
 		if err != nil {
 			return fmt.Errorf("failed to remove leader from membership table: %v", err)
@@ -221,6 +226,8 @@ func (l *LeaderElection) Start() {
 		}
 		if l.Id == l.Leader.Id {
 			log.Println("I was elected leader")
+			// Publish election results
+			go func() { l.Results <- RESULT_ELECTED }()
 		} else {
 			log.Printf("leader is %s - monitoring it", l.Leader.Id)
 			go l.monitorLeader()

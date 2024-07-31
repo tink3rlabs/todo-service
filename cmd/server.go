@@ -4,13 +4,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand/v2"
 	"net/http"
+	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/go-chi/render"
+	"github.com/go-co-op/gocron/v2"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	openapigodoc "github.com/tink3rlabs/openapi-godoc"
@@ -113,9 +116,48 @@ func generateOpenApiSpec() []byte {
 	return definition
 }
 
+func createScheduler() {
+	log.Print("strating scheduler")
+	// create a scheduler
+	s, err := gocron.NewScheduler()
+	if err != nil {
+		log.Panicf("failed to create scheduler %v", err)
+	}
+	// add a job to the scheduler
+	_, err = s.NewJob(
+		gocron.DurationJob(30*time.Second),
+		gocron.NewTask(
+			func(param string) {
+				log.Printf("scheduled job says %v", param)
+			},
+			"hello",
+		),
+	)
+	if err != nil {
+		log.Panicf("failed to create scheduled job %v", err)
+	}
+
+	// start the scheduler
+	s.Start()
+}
+
 func runServer(cmd *cobra.Command, args []string) error {
+	// Random sleep between 0 to 30 seconds to handle multiple instances starting at the same time
+	sleep := rand.IntN(30)
+	log.Printf("sleeping for %v seconds to handle multiple instances starting at the same time", sleep)
+	time.Sleep(time.Duration(sleep) * time.Second)
+
 	storage.NewDatabaseMigration().Migrate()
-	leadership.NewLeaderElection().Start()
+	election := leadership.NewLeaderElection()
+	election.Start()
+
+	go func() {
+		for result := range election.Results {
+			if result == leadership.RESULT_ELECTED {
+				createScheduler()
+			}
+		}
+	}()
 
 	router := initRoutes()
 
