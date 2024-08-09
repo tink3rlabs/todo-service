@@ -32,6 +32,10 @@ func (m *MemoryAdapter) Execute(s string) error {
 	return errors.New("memory adapter doesn't support executing arbitrary statements")
 }
 
+func (m *MemoryAdapter) Ping() error {
+	return nil
+}
+
 func (m *MemoryAdapter) ListTodos(limit int, cursor string) ([]types.Todo, string, error) {
 	todos := []types.Todo{}
 	nextId := ""

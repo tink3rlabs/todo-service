@@ -83,6 +83,14 @@ func (s *SQLAdapter) Execute(statement string) error {
 	return nil
 }
 
+func (s *SQLAdapter) Ping() error {
+	db, err := s.DB.DB()
+	if err != nil {
+		return fmt.Errorf("failed to connect to database: %v", err)
+	}
+	return db.Ping()
+}
+
 func (s *SQLAdapter) ListTodos(limit int, cursor string) ([]types.Todo, string, error) {
 	todos := []types.Todo{}
 	nextId := ""

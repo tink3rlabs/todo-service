@@ -27,3 +27,9 @@ storage:
 leadership:
   # specify the interval to update node heartbeat
   heartbeat: 60s
+health:
+  # if true, readiness checks will check the health of the configured storage adapter
+  storage: true
+  # list of dependency URLs. If not empty will perform a GET request for each URL
+  # and fail the readiness check if any fail or return a status code > 399
+  dependencies: ~
