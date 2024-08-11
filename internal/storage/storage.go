@@ -14,6 +14,7 @@ var ErrNotFound = errors.New("not found")
 
 type StorageAdapter interface {
 	Execute(statement string) error
+	Ping() error
 	ListTodos(limit int, cursor string) ([]types.Todo, string, error)
 	GetTodo(id string) (types.Todo, error)
 	DeleteTodo(id string) error

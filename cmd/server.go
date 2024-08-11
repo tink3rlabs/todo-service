@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"log/slog"
 	"math/rand/v2"
 	"net/http"
 	"time"
@@ -18,9 +19,11 @@ import (
 	"github.com/spf13/viper"
 	openapigodoc "github.com/tink3rlabs/openapi-godoc"
 
+	"todo-service/internal/health"
 	"todo-service/internal/leadership"
 	"todo-service/internal/storage"
 	"todo-service/routes"
+	"todo-service/types"
 )
 
 var serverCommand = &cobra.Command{
@@ -165,6 +168,30 @@ func runServer(cmd *cobra.Command, args []string) error {
 	router.Get("/api-docs", func(w http.ResponseWriter, r *http.Request) {
 		if _, responseFailed := w.Write(openApiSpec); responseFailed != nil {
 			log.Printf("failed responding to /api-docs: %v", responseFailed)
+		}
+	})
+
+	//health check - liveness
+	router.Get("/health/liveness", func(w http.ResponseWriter, r *http.Request) {
+		render.Status(r, http.StatusNoContent)
+		render.NoContent(w, r)
+	})
+
+	//health check - readiness
+	healthChecker := health.NewHealthChecker()
+	router.Get("/health/readiness", func(w http.ResponseWriter, r *http.Request) {
+		err := healthChecker.Check(viper.GetBool("health.storage"), viper.GetStringSlice("health.dependencies"))
+		if err != nil {
+			slog.Error(err.Error())
+			response := types.ErrorResponse{
+				Status: http.StatusText(http.StatusServiceUnavailable),
+				Error:  err.Error(),
+			}
+			render.Status(r, http.StatusServiceUnavailable)
+			render.JSON(w, r, response)
+		} else {
+			render.Status(r, http.StatusNoContent)
+			render.NoContent(w, r)
 		}
 	})
 
