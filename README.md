@@ -44,7 +44,7 @@ This is in the internal/leadership folder. Implements leader election from a lis
 This is in the internal/middlewares folder. This validates the json schema and calls the next handler in the http chain to process the request further.
 
 ### storage package
-This is in the internal/storage folder. This provides different storage adapters such as "memory" and "sql"
+This is in the internal/storage folder. This provides different storage adapters such as "memory", "sql"
 
 
 
