@@ -2,7 +2,7 @@ package storage
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"path/filepath"
 	"slices"
 	"sort"
@@ -12,7 +12,11 @@ import (
 
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
+
+	"todo-service/internal/logger"
 )
+
+var log = logger.GetLogger()
 
 type MigrationFile struct {
 	Description string
@@ -34,7 +38,7 @@ func NewDatabaseMigration() *DatabaseMigration {
 	s := StorageAdapterFactory{}
 	storageAdapter, err := s.GetInstance(DEFAULT)
 	if err != nil {
-		log.Fatalf("failed to create DatabaseMigration instance: %s", err.Error())
+		log.Error("failed to create DatabaseMigration instance", slog.Any("error", err.Error()))
 		return nil
 	}
 	m := DatabaseMigration{
@@ -128,11 +132,11 @@ func (m *DatabaseMigration) rollbackMigration(migration MigrationFile) error {
 }
 
 func (m *DatabaseMigration) runMigrations(migrations map[string]MigrationFile) {
-	log.Println("Getting last migration applied")
+	log.Info("Getting last migration applied")
 	rollback := false
 	latestMigrationId, err := m.getLatestMigration()
 	if err != nil {
-		log.Fatalf("failed to get latest migration: %v", err)
+		log.Error("failed to get latest migration", slog.Any("error", err))
 	}
 
 	//iterating over a map is randomized so we need to make sure we use the correct order of migrations
@@ -145,31 +149,31 @@ func (m *DatabaseMigration) runMigrations(migrations map[string]MigrationFile) {
 	for _, k := range keys {
 		migrationId, err := strconv.Atoi(strings.Split(k, "__")[0])
 		if err != nil {
-			log.Fatalf("failed to determine migration id: %v", err)
+			log.Error("failed to determine migration id", slog.Any("error", err))
 		}
 		if migrationId > latestMigrationId {
 			mf := migrations[k]
 			for _, stmt := range mf.Migrations {
 				err := m.storage.Execute(stmt.Migrate)
 				if err != nil {
-					log.Printf("failed to execute migration statement: %v", err)
-					log.Printf("attempting to rollback migration: %s", k)
+					log.Error("failed to execute migration statement", slog.Any("error", err))
+					log.Info("failed to execute migration statement", slog.String("key", k))
 					rollback = true
 					err = m.rollbackMigration(mf)
 					if err != nil {
-						log.Fatalf("failed to rollback migration: %v", err)
+						log.Error("failed to rollback migration", slog.Any("error", err))
 					}
-					log.Print("rollback successful")
+					log.Info("rollback successful")
 					break
 				}
 			}
 			if rollback {
 				break
 			}
-			log.Printf("updating migration table for %v", k)
+			log.Info("updating migration table for", slog.String("key", k))
 			err = m.updateMigrationTable(migrationId, k, mf.Description)
 			if err != nil {
-				log.Fatalf("failed to update migration table: %v", err)
+				log.Error("failed to update migration table", slog.Any("error", err))
 			}
 		}
 	}
@@ -177,24 +181,24 @@ func (m *DatabaseMigration) runMigrations(migrations map[string]MigrationFile) {
 
 func (m *DatabaseMigration) Migrate() {
 	if m.storageType == string(MEMORY) {
-		log.Println("using memory storage adapter, migrations are not needed")
+		log.Info("using memory storage adapter, migrations are not needed")
 	} else {
-		log.Println("using a persistent storage adapter, executing migrations")
+		log.Info("using a persistent storage adapter, executing migrations")
 		migrations, err := m.getMigrationFiles()
 		if err != nil {
-			log.Fatalf("failed to get migration files: %v", err)
+			log.Error("failed to get migration files", slog.Any("error", err))
 		}
-		log.Println("creating schema")
+		log.Info("creating schema")
 		err = m.createSchema()
 		if err != nil {
-			log.Fatalf("failed to create schema: %v", err)
+			log.Error("failed to create schema", slog.Any("error", err))
 		}
-		log.Println("creating migration table")
+		log.Info("creating migration table")
 		err = m.createMigrationTable()
 		if err != nil {
-			log.Fatalf("failed to create migration table: %v", err)
+			log.Error("failed to create migration table", slog.Any("error", err))
 		}
 		m.runMigrations(migrations)
-		log.Println("finished running migrations")
+		log.Info("finished running migrations")
 	}
 }

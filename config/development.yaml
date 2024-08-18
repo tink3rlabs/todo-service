@@ -33,3 +33,7 @@ health:
   # list of dependency URLs. If not empty will perform a GET request for each URL
   # and fail the readiness check if any fail or return a status code > 399
   dependencies: ~
+logger:
+  log_level: info
+  format_json: false
+

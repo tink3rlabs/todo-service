@@ -3,7 +3,6 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"log/slog"
 	"math/rand/v2"
 	"net/http"
@@ -21,10 +20,13 @@ import (
 
 	"todo-service/internal/health"
 	"todo-service/internal/leadership"
+	"todo-service/internal/logger"
 	"todo-service/internal/storage"
 	"todo-service/routes"
 	"todo-service/types"
 )
+
+var log = logger.GetLogger()
 
 var serverCommand = &cobra.Command{
 	Use:   "server",
@@ -86,7 +88,7 @@ func generateOpenApiSpec() []byte {
 	var securitySchemas map[string]interface{}
 	err := json.Unmarshal(securitySchemasData, &securitySchemas)
 	if err != nil {
-		log.Panicf("Logging err: %s\n", err.Error()) // panic if there is an error
+		log.Error("Logging err", slog.Any("error", err.Error())) // panic if there is an error
 	}
 
 	apiDefinition := openapigodoc.OpenAPIDefinition{
@@ -114,30 +116,30 @@ func generateOpenApiSpec() []byte {
 
 	definition, err := openapigodoc.GenerateOpenApiDoc(apiDefinition, true)
 	if err != nil {
-		log.Panicf("Logging err: %s\n", err.Error())
+		log.Error("Logging err", slog.Any("error", err.Error()))
 	}
 	return definition
 }
 
 func createScheduler() {
-	log.Print("strating scheduler")
+	log.Info("strating scheduler")
 	// create a scheduler
 	s, err := gocron.NewScheduler()
 	if err != nil {
-		log.Panicf("failed to create scheduler %v", err)
+		log.Error("failed to create scheduler", slog.Any("error", err))
 	}
 	// add a job to the scheduler
 	_, err = s.NewJob(
 		gocron.DurationJob(30*time.Second),
 		gocron.NewTask(
 			func(param string) {
-				log.Printf("scheduled job says %v", param)
+				log.Info("scheduled job says", slog.String("param", param))
 			},
 			"hello",
 		),
 	)
 	if err != nil {
-		log.Panicf("failed to create scheduled job %v", err)
+		log.Error("failed to create scheduled job", slog.Any("error", err))
 	}
 
 	// start the scheduler
@@ -147,7 +149,7 @@ func createScheduler() {
 func runServer(cmd *cobra.Command, args []string) error {
 	// Random sleep between 0 to 30 seconds to handle multiple instances starting at the same time
 	sleep := rand.IntN(30)
-	log.Printf("sleeping for %v seconds to handle multiple instances starting at the same time", sleep)
+	log.Info("Sleeping to handle multiple instances starting at the same time", slog.Int("sleep_duration_sec", sleep))
 	time.Sleep(time.Duration(sleep) * time.Second)
 
 	storage.NewDatabaseMigration().Migrate()
@@ -167,7 +169,7 @@ func runServer(cmd *cobra.Command, args []string) error {
 	openApiSpec := generateOpenApiSpec()
 	router.Get("/api-docs", func(w http.ResponseWriter, r *http.Request) {
 		if _, responseFailed := w.Write(openApiSpec); responseFailed != nil {
-			log.Printf("failed responding to /api-docs: %v", responseFailed)
+			log.Error("failed responding to /api-docs:", slog.Any("error", responseFailed))
 		}
 	})
 
@@ -182,7 +184,7 @@ func runServer(cmd *cobra.Command, args []string) error {
 	router.Get("/health/readiness", func(w http.ResponseWriter, r *http.Request) {
 		err := healthChecker.Check(viper.GetBool("health.storage"), viper.GetStringSlice("health.dependencies"))
 		if err != nil {
-			slog.Error(err.Error())
+			log.Error("health check readiness failed", slog.Any("error", err.Error()))
 			response := types.ErrorResponse{
 				Status: http.StatusText(http.StatusServiceUnavailable),
 				Error:  err.Error(),
