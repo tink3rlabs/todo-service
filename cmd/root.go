@@ -8,13 +8,15 @@ import (
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"todo-service/internal/logger"
 )
 
 var cfgFile string
 var rootCmd = &cobra.Command{
 	Use:   "",
 	Short: "ToDo is a reference implementaion of a common service architecture",
-	Long: `ToDo is a reference implementaion of a common service architecture brought to you with love by tink3rlabs. 
+	Long: `ToDo is a reference implementaion of a common service architecture brought to you with love by tink3rlabs.
 Complete documentation is available at https://github.com/tink3rlabs/todo-service`,
 }
 
@@ -59,5 +61,19 @@ func initConfig() {
 	if err := viper.ReadInConfig(); err != nil {
 		fmt.Println("Can't read config:", err)
 		os.Exit(1)
+	}
+
+	loggerConfig := logConfigFromFile()
+	logger.Init(loggerConfig)
+}
+
+func logConfigFromFile() *logger.Config {
+	// Fetch the log level and format from the config file
+	levelStr := viper.GetString("logger.log_level")
+	formatJSON := viper.GetBool("logger.format_json")
+
+	return &logger.Config{
+		Level:     logger.MapLogLevel(levelStr),
+		WriteJSON: formatJSON,
 	}
 }

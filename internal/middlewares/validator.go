@@ -11,11 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
 	"github.com/xeipuuv/gojsonschema"
-
-	"todo-service/internal/logger"
 )
-
-var log = logger.GetLogger()
 
 type Validator struct{}
 
@@ -41,7 +37,7 @@ func JSONSchemaValidator(schema string, data interface{}) (ValidationResult, err
 	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
 
 	if err != nil {
-		log.Error("gojsonschema validation function failed", slog.Any("error", err))
+		slog.Error("gojsonschema validation function failed", slog.Any("error", err))
 		return ValidationResult{}, err
 	}
 

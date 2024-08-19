@@ -5,11 +5,8 @@ import (
 	"log/slog"
 	"net/http"
 
-	"todo-service/internal/logger"
 	"todo-service/internal/storage"
 )
-
-var log = logger.GetLogger()
 
 type HealthChecker struct {
 	storage storage.StorageAdapter
@@ -19,7 +16,7 @@ func NewHealthChecker() *HealthChecker {
 	s := storage.StorageAdapterFactory{}
 	storageAdapter, err := s.GetInstance(storage.DEFAULT)
 	if err != nil {
-		log.Error("failed to create HealthChecker instance", slog.Any("error", err.Error()))
+		slog.Error("failed to create HealthChecker instance", slog.Any("error", err.Error()))
 	}
 	return &HealthChecker{storage: storageAdapter}
 }

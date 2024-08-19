@@ -67,11 +67,11 @@ func (s *SQLAdapter) OpenConnection() {
 	case string(SQLITE):
 		s.DB, err = gorm.Open(sqlite.Open(config["path"]), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 	default:
-		log.Error("this SQL provider is not supported, supported providers are: postgresql, mysql, and sqlite")
+		slog.Error("this SQL provider is not supported, supported providers are: postgresql, mysql, and sqlite")
 	}
 
 	if err != nil {
-		log.Error("failed to open a database connection", slog.Any("error", err.Error()))
+		slog.Error("failed to open a database connection", slog.Any("error", err.Error()))
 	}
 }
 

@@ -3,12 +3,15 @@ package logger
 import (
 	"log/slog"
 	"os"
-
-	"github.com/spf13/viper"
 )
 
+type Config struct {
+	Level     slog.Level
+	WriteJSON bool
+}
+
 // mapLogLevel maps a string log level from config to slog.Level
-func mapLogLevel(levelStr string) slog.Level {
+func MapLogLevel(levelStr string) slog.Level {
 	switch levelStr {
 	case "debug":
 		return slog.LevelDebug
@@ -23,25 +26,22 @@ func mapLogLevel(levelStr string) slog.Level {
 	}
 }
 
-func GetLogger() *slog.Logger {
+func Init(config *Config) {
 
 	var handler slog.Handler
 
-	// Fetch the log level and format from the config file
-	levelStr := viper.GetString("logger.log_level")
-	formatJSON := viper.GetBool("logger.format_json")
-
-	logLevel := mapLogLevel(levelStr)
-
 	// Choose the handler based on the format and log level from the config
-	if formatJSON {
-		handler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: logLevel})
+	if config.WriteJSON {
+		handler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: config.Level})
 	} else {
-		handler = slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: logLevel})
+		handler = slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: config.Level})
 	}
 
 	// Initialize the logger with the selected handler
+	// logger.LogLevel = logger.LogLevel(config.Level)
 	logger := slog.New(handler)
 
-	return logger
+	//Set the global default logger this is the logger that will be used when slog.<LevelName>() functions are used
+	slog.SetDefault(logger)
+
 }

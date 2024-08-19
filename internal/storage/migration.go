@@ -12,11 +12,7 @@ import (
 
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
-
-	"todo-service/internal/logger"
 )
-
-var log = logger.GetLogger()
 
 type MigrationFile struct {
 	Description string
@@ -38,7 +34,7 @@ func NewDatabaseMigration() *DatabaseMigration {
 	s := StorageAdapterFactory{}
 	storageAdapter, err := s.GetInstance(DEFAULT)
 	if err != nil {
-		log.Error("failed to create DatabaseMigration instance", slog.Any("error", err.Error()))
+		slog.Error("failed to create DatabaseMigration instance", slog.Any("error", err.Error()))
 		return nil
 	}
 	m := DatabaseMigration{
@@ -132,11 +128,11 @@ func (m *DatabaseMigration) rollbackMigration(migration MigrationFile) error {
 }
 
 func (m *DatabaseMigration) runMigrations(migrations map[string]MigrationFile) {
-	log.Info("Getting last migration applied")
+	slog.Info("Getting last migration applied")
 	rollback := false
 	latestMigrationId, err := m.getLatestMigration()
 	if err != nil {
-		log.Error("failed to get latest migration", slog.Any("error", err))
+		slog.Error("failed to get latest migration", slog.Any("error", err))
 	}
 
 	//iterating over a map is randomized so we need to make sure we use the correct order of migrations
@@ -149,31 +145,31 @@ func (m *DatabaseMigration) runMigrations(migrations map[string]MigrationFile) {
 	for _, k := range keys {
 		migrationId, err := strconv.Atoi(strings.Split(k, "__")[0])
 		if err != nil {
-			log.Error("failed to determine migration id", slog.Any("error", err))
+			slog.Error("failed to determine migration id", slog.Any("error", err))
 		}
 		if migrationId > latestMigrationId {
 			mf := migrations[k]
 			for _, stmt := range mf.Migrations {
 				err := m.storage.Execute(stmt.Migrate)
 				if err != nil {
-					log.Error("failed to execute migration statement", slog.Any("error", err))
-					log.Info("failed to execute migration statement", slog.String("key", k))
+					slog.Error("failed to execute migration statement", slog.Any("error", err))
+					slog.Info("failed to execute migration statement", slog.String("key", k))
 					rollback = true
 					err = m.rollbackMigration(mf)
 					if err != nil {
-						log.Error("failed to rollback migration", slog.Any("error", err))
+						slog.Error("failed to rollback migration", slog.Any("error", err))
 					}
-					log.Info("rollback successful")
+					slog.Info("rollback successful")
 					break
 				}
 			}
 			if rollback {
 				break
 			}
-			log.Info("updating migration table for", slog.String("key", k))
+			slog.Info("updating migration table for", slog.String("key", k))
 			err = m.updateMigrationTable(migrationId, k, mf.Description)
 			if err != nil {
-				log.Error("failed to update migration table", slog.Any("error", err))
+				slog.Error("failed to update migration table", slog.Any("error", err))
 			}
 		}
 	}
@@ -181,24 +177,24 @@ func (m *DatabaseMigration) runMigrations(migrations map[string]MigrationFile) {
 
 func (m *DatabaseMigration) Migrate() {
 	if m.storageType == string(MEMORY) {
-		log.Info("using memory storage adapter, migrations are not needed")
+		slog.Info("using memory storage adapter, migrations are not needed")
 	} else {
-		log.Info("using a persistent storage adapter, executing migrations")
+		slog.Info("using a persistent storage adapter, executing migrations")
 		migrations, err := m.getMigrationFiles()
 		if err != nil {
-			log.Error("failed to get migration files", slog.Any("error", err))
+			slog.Error("failed to get migration files", slog.Any("error", err))
 		}
-		log.Info("creating schema")
+		slog.Info("creating schema")
 		err = m.createSchema()
 		if err != nil {
-			log.Error("failed to create schema", slog.Any("error", err))
+			slog.Error("failed to create schema", slog.Any("error", err))
 		}
-		log.Info("creating migration table")
+		slog.Info("creating migration table")
 		err = m.createMigrationTable()
 		if err != nil {
-			log.Error("failed to create migration table", slog.Any("error", err))
+			slog.Error("failed to create migration table", slog.Any("error", err))
 		}
 		m.runMigrations(migrations)
-		log.Info("finished running migrations")
+		slog.Info("finished running migrations")
 	}
 }
