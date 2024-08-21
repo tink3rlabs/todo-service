@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"math/rand/v2"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -86,6 +87,7 @@ func generateOpenApiSpec() []byte {
 	err := json.Unmarshal(securitySchemasData, &securitySchemas)
 	if err != nil {
 		slog.Error("Logging err", slog.Any("error", err.Error())) // panic if there is an error
+		os.Exit(1)
 	}
 
 	apiDefinition := openapigodoc.OpenAPIDefinition{
@@ -114,6 +116,7 @@ func generateOpenApiSpec() []byte {
 	definition, err := openapigodoc.GenerateOpenApiDoc(apiDefinition, true)
 	if err != nil {
 		slog.Error("Logging err", slog.Any("error", err.Error()))
+		os.Exit(1)
 	}
 	return definition
 }
@@ -124,6 +127,7 @@ func createScheduler() {
 	s, err := gocron.NewScheduler()
 	if err != nil {
 		slog.Error("failed to create scheduler", slog.Any("error", err))
+		os.Exit(1)
 	}
 	// add a job to the scheduler
 	_, err = s.NewJob(
@@ -137,6 +141,7 @@ func createScheduler() {
 	)
 	if err != nil {
 		slog.Error("failed to create scheduled job", slog.Any("error", err))
+		os.Exit(1)
 	}
 
 	// start the scheduler

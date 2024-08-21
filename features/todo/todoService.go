@@ -2,6 +2,7 @@ package todo
 
 import (
 	"log/slog"
+	"os"
 
 	"github.com/google/uuid"
 
@@ -18,7 +19,7 @@ func NewTodoService() *TodoService {
 	storageAdapter, err := s.GetInstance(storage.DEFAULT)
 	if err != nil {
 		slog.Error("failed to create TodoService instance", slog.Any("error", err.Error()))
-		return nil
+		os.Exit(1)
 	}
 	t := TodoService{storage: storageAdapter}
 	return &t

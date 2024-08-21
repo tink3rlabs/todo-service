@@ -3,6 +3,7 @@ package storage
 import (
 	"fmt"
 	"log/slog"
+	"os"
 	"path/filepath"
 	"slices"
 	"sort"
@@ -35,7 +36,7 @@ func NewDatabaseMigration() *DatabaseMigration {
 	storageAdapter, err := s.GetInstance(DEFAULT)
 	if err != nil {
 		slog.Error("failed to create DatabaseMigration instance", slog.Any("error", err.Error()))
-		return nil
+		os.Exit(1)
 	}
 	m := DatabaseMigration{
 		storage:         storageAdapter,
@@ -133,6 +134,7 @@ func (m *DatabaseMigration) runMigrations(migrations map[string]MigrationFile) {
 	latestMigrationId, err := m.getLatestMigration()
 	if err != nil {
 		slog.Error("failed to get latest migration", slog.Any("error", err))
+		os.Exit(1)
 	}
 
 	//iterating over a map is randomized so we need to make sure we use the correct order of migrations
@@ -146,6 +148,7 @@ func (m *DatabaseMigration) runMigrations(migrations map[string]MigrationFile) {
 		migrationId, err := strconv.Atoi(strings.Split(k, "__")[0])
 		if err != nil {
 			slog.Error("failed to determine migration id", slog.Any("error", err))
+			os.Exit(1)
 		}
 		if migrationId > latestMigrationId {
 			mf := migrations[k]
@@ -158,6 +161,7 @@ func (m *DatabaseMigration) runMigrations(migrations map[string]MigrationFile) {
 					err = m.rollbackMigration(mf)
 					if err != nil {
 						slog.Error("failed to rollback migration", slog.Any("error", err))
+						os.Exit(1)
 					}
 					slog.Info("rollback successful")
 					break
@@ -170,6 +174,7 @@ func (m *DatabaseMigration) runMigrations(migrations map[string]MigrationFile) {
 			err = m.updateMigrationTable(migrationId, k, mf.Description)
 			if err != nil {
 				slog.Error("failed to update migration table", slog.Any("error", err))
+				os.Exit(1)
 			}
 		}
 	}
@@ -183,16 +188,19 @@ func (m *DatabaseMigration) Migrate() {
 		migrations, err := m.getMigrationFiles()
 		if err != nil {
 			slog.Error("failed to get migration files", slog.Any("error", err))
+			os.Exit(1)
 		}
 		slog.Info("creating schema")
 		err = m.createSchema()
 		if err != nil {
 			slog.Error("failed to create schema", slog.Any("error", err))
+			os.Exit(1)
 		}
 		slog.Info("creating migration table")
 		err = m.createMigrationTable()
 		if err != nil {
 			slog.Error("failed to create migration table", slog.Any("error", err))
+			os.Exit(1)
 		}
 		m.runMigrations(migrations)
 		slog.Info("finished running migrations")

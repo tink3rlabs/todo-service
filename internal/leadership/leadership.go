@@ -3,6 +3,7 @@ package leadership
 import (
 	"fmt"
 	"log/slog"
+	"os"
 	"sync"
 	"time"
 
@@ -46,6 +47,7 @@ func NewLeaderElection() *LeaderElection {
 			storageAdapter, err := s.GetInstance(storage.DEFAULT)
 			if err != nil {
 				slog.Error("failed to create LeaderElection instance", slog.Any("error", err.Error()))
+				os.Exit(1)
 			}
 			heartbeatInterval := viper.GetDuration("leadership.heartbeat")
 			if heartbeatInterval == 0 {
@@ -213,16 +215,19 @@ func (l *LeaderElection) Start() {
 		err := l.createLeadershipTable()
 		if err != nil {
 			slog.Error("failed to create membership table", slog.Any("error", err))
+			os.Exit(1)
 		}
 		slog.Info("registering node:", slog.String("node_id", l.Id))
 		err = l.updateMembershipTable()
 		if err != nil {
 			slog.Error("failed to register node", slog.Any("error", err))
+			os.Exit(1)
 		}
 		go l.heartbeat()
 		err = l.electLeader(false)
 		if err != nil {
 			slog.Error("failed to elect leader", slog.Any("error", err))
+			os.Exit(1)
 		}
 		if l.Id == l.Leader.Id {
 			slog.Info("I was elected leader")
