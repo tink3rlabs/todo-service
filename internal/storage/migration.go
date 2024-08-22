@@ -3,13 +3,14 @@ package storage
 import (
 	"fmt"
 	"log/slog"
-	"os"
 	"path/filepath"
 	"slices"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"todo-service/internal/logger"
 
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
@@ -35,8 +36,7 @@ func NewDatabaseMigration() *DatabaseMigration {
 	s := StorageAdapterFactory{}
 	storageAdapter, err := s.GetInstance(DEFAULT)
 	if err != nil {
-		slog.Error("failed to create DatabaseMigration instance", slog.Any("error", err.Error()))
-		os.Exit(1)
+		logger.Fatal("failed to create DatabaseMigration instance", slog.Any("error", err.Error()))
 	}
 	m := DatabaseMigration{
 		storage:         storageAdapter,
@@ -133,8 +133,7 @@ func (m *DatabaseMigration) runMigrations(migrations map[string]MigrationFile) {
 	rollback := false
 	latestMigrationId, err := m.getLatestMigration()
 	if err != nil {
-		slog.Error("failed to get latest migration", slog.Any("error", err))
-		os.Exit(1)
+		logger.Fatal("failed to get latest migration", slog.Any("error", err))
 	}
 
 	//iterating over a map is randomized so we need to make sure we use the correct order of migrations
@@ -147,8 +146,7 @@ func (m *DatabaseMigration) runMigrations(migrations map[string]MigrationFile) {
 	for _, k := range keys {
 		migrationId, err := strconv.Atoi(strings.Split(k, "__")[0])
 		if err != nil {
-			slog.Error("failed to determine migration id", slog.Any("error", err))
-			os.Exit(1)
+			logger.Fatal("failed to determine migration id", slog.Any("error", err))
 		}
 		if migrationId > latestMigrationId {
 			mf := migrations[k]
@@ -160,8 +158,7 @@ func (m *DatabaseMigration) runMigrations(migrations map[string]MigrationFile) {
 					rollback = true
 					err = m.rollbackMigration(mf)
 					if err != nil {
-						slog.Error("failed to rollback migration", slog.Any("error", err))
-						os.Exit(1)
+						logger.Fatal("failed to rollback migration", slog.Any("error", err))
 					}
 					slog.Info("rollback successful")
 					break
@@ -173,8 +170,7 @@ func (m *DatabaseMigration) runMigrations(migrations map[string]MigrationFile) {
 			slog.Info("updating migration table for", slog.String("key", k))
 			err = m.updateMigrationTable(migrationId, k, mf.Description)
 			if err != nil {
-				slog.Error("failed to update migration table", slog.Any("error", err))
-				os.Exit(1)
+				logger.Fatal("failed to update migration table", slog.Any("error", err))
 			}
 		}
 	}
@@ -187,20 +183,17 @@ func (m *DatabaseMigration) Migrate() {
 		slog.Info("using a persistent storage adapter, executing migrations")
 		migrations, err := m.getMigrationFiles()
 		if err != nil {
-			slog.Error("failed to get migration files", slog.Any("error", err))
-			os.Exit(1)
+			logger.Fatal("failed to get migration files", slog.Any("error", err))
 		}
 		slog.Info("creating schema")
 		err = m.createSchema()
 		if err != nil {
-			slog.Error("failed to create schema", slog.Any("error", err))
-			os.Exit(1)
+			logger.Fatal("failed to create schema", slog.Any("error", err))
 		}
 		slog.Info("creating migration table")
 		err = m.createMigrationTable()
 		if err != nil {
-			slog.Error("failed to create migration table", slog.Any("error", err))
-			os.Exit(1)
+			logger.Fatal("failed to create migration table", slog.Any("error", err))
 		}
 		m.runMigrations(migrations)
 		slog.Info("finished running migrations")

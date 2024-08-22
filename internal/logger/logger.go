@@ -6,8 +6,8 @@ import (
 )
 
 type Config struct {
-	Level     slog.Level
-	WriteJSON bool
+	Level slog.Level
+	JSON  bool
 }
 
 // mapLogLevel maps a string log level from config to slog.Level
@@ -31,7 +31,7 @@ func Init(config *Config) {
 	var handler slog.Handler
 
 	// Choose the handler based on the format and log level from the config
-	if config.WriteJSON {
+	if config.JSON {
 		handler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: config.Level})
 	} else {
 		handler = slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: config.Level})
@@ -44,4 +44,10 @@ func Init(config *Config) {
 	//Set the global default logger this is the logger that will be used when slog.<LevelName>() functions are used
 	slog.SetDefault(logger)
 
+}
+
+// slog doesn't have fatal, hence creating the function
+func Fatal(msg string, args ...any) {
+	slog.Error(msg, args...)
+	os.Exit(1)
 }

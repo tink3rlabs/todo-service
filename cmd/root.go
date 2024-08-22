@@ -63,17 +63,17 @@ func initConfig() {
 		os.Exit(1)
 	}
 
-	loggerConfig := logConfigFromFile()
-	logger.Init(loggerConfig)
+	config := loggerConfig()
+	logger.Init(config)
 }
 
-func logConfigFromFile() *logger.Config {
+func loggerConfig() *logger.Config {
 	// Fetch the log level and format from the config file
-	levelStr := viper.GetString("logger.log_level")
-	formatJSON := viper.GetBool("logger.format_json")
+	levelStr := viper.GetString("logger.level")
+	json := viper.GetBool("logger.json")
 
 	return &logger.Config{
-		Level:     logger.MapLogLevel(levelStr),
-		WriteJSON: formatJSON,
+		Level: logger.MapLogLevel(levelStr),
+		JSON:  json,
 	}
 }

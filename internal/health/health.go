@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"os"
 
+	"todo-service/internal/logger"
 	"todo-service/internal/storage"
 )
 
@@ -17,8 +17,7 @@ func NewHealthChecker() *HealthChecker {
 	s := storage.StorageAdapterFactory{}
 	storageAdapter, err := s.GetInstance(storage.DEFAULT)
 	if err != nil {
-		slog.Error("failed to create HealthChecker instance", slog.Any("error", err.Error()))
-		os.Exit(1)
+		logger.Fatal("failed to create HealthChecker instance", slog.Any("error", err.Error()))
 	}
 	return &HealthChecker{storage: storageAdapter}
 }

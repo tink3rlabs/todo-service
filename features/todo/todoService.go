@@ -2,10 +2,10 @@ package todo
 
 import (
 	"log/slog"
-	"os"
 
 	"github.com/google/uuid"
 
+	"todo-service/internal/logger"
 	"todo-service/internal/storage"
 	"todo-service/types"
 )
@@ -18,8 +18,7 @@ func NewTodoService() *TodoService {
 	s := storage.StorageAdapterFactory{}
 	storageAdapter, err := s.GetInstance(storage.DEFAULT)
 	if err != nil {
-		slog.Error("failed to create TodoService instance", slog.Any("error", err.Error()))
-		os.Exit(1)
+		logger.Fatal("failed to create TodoService instance", slog.Any("error", err.Error()))
 	}
 	t := TodoService{storage: storageAdapter}
 	return &t

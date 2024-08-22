@@ -3,13 +3,13 @@ package leadership
 import (
 	"fmt"
 	"log/slog"
-	"os"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/spf13/viper"
 
+	"todo-service/internal/logger"
 	"todo-service/internal/storage"
 )
 
@@ -46,8 +46,7 @@ func NewLeaderElection() *LeaderElection {
 			s := storage.StorageAdapterFactory{}
 			storageAdapter, err := s.GetInstance(storage.DEFAULT)
 			if err != nil {
-				slog.Error("failed to create LeaderElection instance", slog.Any("error", err.Error()))
-				os.Exit(1)
+				logger.Fatal("failed to create LeaderElection instance", slog.Any("error", err.Error()))
 			}
 			heartbeatInterval := viper.GetDuration("leadership.heartbeat")
 			if heartbeatInterval == 0 {
@@ -214,20 +213,17 @@ func (l *LeaderElection) Start() {
 		slog.Info("creating membership table")
 		err := l.createLeadershipTable()
 		if err != nil {
-			slog.Error("failed to create membership table", slog.Any("error", err))
-			os.Exit(1)
+			logger.Fatal("failed to create membership table", slog.Any("error", err))
 		}
 		slog.Info("registering node:", slog.String("node_id", l.Id))
 		err = l.updateMembershipTable()
 		if err != nil {
-			slog.Error("failed to register node", slog.Any("error", err))
-			os.Exit(1)
+			logger.Fatal("failed to register node", slog.Any("error", err))
 		}
 		go l.heartbeat()
 		err = l.electLeader(false)
 		if err != nil {
-			slog.Error("failed to elect leader", slog.Any("error", err))
-			os.Exit(1)
+			logger.Fatal("failed to elect leader", slog.Any("error", err))
 		}
 		if l.Id == l.Leader.Id {
 			slog.Info("I was elected leader")
