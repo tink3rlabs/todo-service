@@ -2,13 +2,14 @@ package leadership
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/spf13/viper"
 
+	"todo-service/internal/logger"
 	"todo-service/internal/storage"
 )
 
@@ -45,7 +46,7 @@ func NewLeaderElection() *LeaderElection {
 			s := storage.StorageAdapterFactory{}
 			storageAdapter, err := s.GetInstance(storage.DEFAULT)
 			if err != nil {
-				log.Fatalf("failed to create LeaderElection instance: %s", err.Error())
+				logger.Fatal("failed to create LeaderElection instance", slog.Any("error", err.Error()))
 			}
 			heartbeatInterval := viper.GetDuration("leadership.heartbeat")
 			if heartbeatInterval == 0 {
@@ -96,11 +97,11 @@ func (l *LeaderElection) heartbeat() {
 	for {
 		time.Sleep(l.heartbeatInterval)
 		now := time.Now().UnixMilli()
-		log.Printf("updating heartbeat to: %v", now)
+		slog.Info("updating heartbeat", slog.Int64("heartbeat", now))
 		statement := fmt.Sprintf(`UPDATE members SET heartbeat='%v' WHERE id='%s'`, now, l.Id)
 		err := l.storage.Execute(statement)
 		if err != nil {
-			log.Printf("failed to update heartbeat: %v", err)
+			slog.Error("failed to update heartbeat", slog.Any("error", err))
 		}
 	}
 }
@@ -113,26 +114,26 @@ func (l *LeaderElection) monitorLeader() {
 
 		leader, err := l.getLeader()
 		if err != nil {
-			log.Printf("error monitoring leader: %v", err)
+			slog.Error("error monitoring leader", slog.Any("error", err))
 		} else {
 			diff := time.Until(time.UnixMilli(leader.Heartbeat))
 			if diff >= acceptableInterval {
-				log.Printf("leader %s is healthy", l.Leader.Id)
+				slog.Info("leader is healthy", slog.String("leader_id", l.Leader.Id))
 			} else {
-				log.Printf("leader %s hasn't updated its heartbeat in %v starting re-election", l.Leader.Id, diff)
+				slog.Info("Starting re-election due to leader inactivity", slog.String("leader_id", l.Leader.Id), slog.Duration("inactivity_duration", diff))
 				err = l.electLeader(true)
 
 				if err != nil {
-					log.Printf("failed to elect new leader: %v", err)
+					slog.Error("failed to elect new leader", slog.Any("error", err))
 				}
 
 				if l.Id == l.Leader.Id {
-					log.Println("I am the new leader")
+					slog.Info("I am the new leader")
 					// Publish election results
 					go func() { l.Results <- RESULT_ELECTED }()
 					break
 				} else {
-					log.Printf("detected a change in leadership, new leader is %v - monitoring it", l.Leader.Id)
+					slog.Info("detected a change in leadership, new leader is elected and monitoring it", slog.String("leader_id", l.Leader.Id))
 				}
 			}
 		}
@@ -141,11 +142,11 @@ func (l *LeaderElection) monitorLeader() {
 
 // electLeader is used to elect a leader from the list of eligible cluster members. It elects the active member with the earliest registration date as leader
 func (l *LeaderElection) electLeader(reElection bool) error {
-	log.Println("starting election process")
+	slog.Info("starting election process")
 	leader := l.Leader
 
 	if reElection {
-		log.Println("this is a re-election removing existing leader")
+		slog.Info("this is a re-election removing existing leader")
 		err := l.removeMember(l.Leader.Id)
 		if err != nil {
 			return fmt.Errorf("failed to remove leader from membership table: %v", err)
@@ -206,30 +207,30 @@ func (l *LeaderElection) Members() ([]Member, error) {
 // Start triggers a new leader election
 func (l *LeaderElection) Start() {
 	if l.storageType == string(storage.MEMORY) {
-		log.Println("using memory storage adapter, leader election is only supported with persistent storage")
+		slog.Info("using memory storage adapter, leader election is only supported with persistent storage")
 	} else {
-		log.Println("using a persistent storage adapter, starting leader election")
-		log.Println("creating membership table")
+		slog.Info("using a persistent storage adapter, starting leader election")
+		slog.Info("creating membership table")
 		err := l.createLeadershipTable()
 		if err != nil {
-			log.Fatalf("failed to create membership table: %v", err)
+			logger.Fatal("failed to create membership table", slog.Any("error", err))
 		}
-		log.Printf("registering node: %s", l.Id)
+		slog.Info("registering node:", slog.String("node_id", l.Id))
 		err = l.updateMembershipTable()
 		if err != nil {
-			log.Fatalf("failed to register node: %v", err)
+			logger.Fatal("failed to register node", slog.Any("error", err))
 		}
 		go l.heartbeat()
 		err = l.electLeader(false)
 		if err != nil {
-			log.Fatalf("failed to elect leader: %v", err)
+			logger.Fatal("failed to elect leader", slog.Any("error", err))
 		}
 		if l.Id == l.Leader.Id {
-			log.Println("I was elected leader")
+			slog.Info("I was elected leader")
 			// Publish election results
 			go func() { l.Results <- RESULT_ELECTED }()
 		} else {
-			log.Printf("leader is %s - monitoring it", l.Leader.Id)
+			slog.Info("monitoring the leader", slog.String("leader_id", l.Leader.Id))
 			go l.monitorLeader()
 		}
 	}

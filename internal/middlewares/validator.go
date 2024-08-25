@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -37,7 +37,7 @@ func JSONSchemaValidator(schema string, data interface{}) (ValidationResult, err
 	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
 
 	if err != nil {
-		log.Println("gojsonschema validation function failed", err)
+		slog.Error("gojsonschema validation function failed", slog.Any("error", err))
 		return ValidationResult{}, err
 	}
 

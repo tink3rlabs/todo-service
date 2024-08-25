@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
-	"log"
+	"log/slog"
 	"sync"
 
 	"github.com/spf13/viper"
@@ -15,6 +15,7 @@ import (
 	"gorm.io/gorm/logger"
 	"gorm.io/gorm/schema"
 
+	slogger "todo-service/internal/logger"
 	"todo-service/types"
 )
 
@@ -67,11 +68,12 @@ func (s *SQLAdapter) OpenConnection() {
 	case string(SQLITE):
 		s.DB, err = gorm.Open(sqlite.Open(config["path"]), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 	default:
-		log.Fatal("this SQL provider is not supported, supported providers are: postgresql, mysql, and sqlite")
+		slogger.Fatal("this SQL provider is not supported, supported providers are: postgresql, mysql, and sqlite")
+
 	}
 
 	if err != nil {
-		log.Fatalf("failed to open a database connection: %s", err.Error())
+		slogger.Fatal("failed to open a database connection", slog.Any("error", err.Error()))
 	}
 }
 
