@@ -3,7 +3,7 @@ service:
   port: 8080
   url: http://localhost:8080
 storage:
-  # supported types are memory and sql
+  # supported types are memory, sql and dynamodb
   type: memory
   # provider: postgresql
   # config:
@@ -24,6 +24,17 @@ storage:
   # provider: sqlite
   # config:
   #   path: todo.sqlite
+  # provider: dynamodb
+  # config:
+  #   region: us-west-2
+  #   endpoint: "http://host.docker.internal:8000"
+  #   access_key: fake
+  #   secret_key: fake
+  #   global: false
+  #   regions:
+  #     - us-west-2
+  #     - us-east-1
+  #     - eu-west-1
 leadership:
   # specify the interval to update node heartbeat
   heartbeat: 60s

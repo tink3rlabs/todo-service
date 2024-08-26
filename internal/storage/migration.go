@@ -177,8 +177,8 @@ func (m *DatabaseMigration) runMigrations(migrations map[string]MigrationFile) {
 }
 
 func (m *DatabaseMigration) Migrate() {
-	if m.storageType == string(MEMORY) {
-		slog.Info("using memory storage adapter, migrations are not needed")
+	if (m.storageType == string(MEMORY)) || (m.storageType == string(DYNAMODB)) {
+		slog.Info(fmt.Sprintf(`using %s storage adapter, migrations are not supported`, m.storageType))
 	} else {
 		slog.Info("using a persistent storage adapter, executing migrations")
 		migrations, err := m.getMigrationFiles()

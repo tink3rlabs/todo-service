@@ -1,11 +1,17 @@
 package leadership
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sync"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/google/uuid"
 	"github.com/spf13/viper"
 
@@ -67,22 +73,91 @@ func NewLeaderElection() *LeaderElection {
 
 // createLeadershipTable creates the database table used for leader election
 func (l *LeaderElection) createLeadershipTable() error {
-	var statement string
-	switch l.storageProvider {
-	case string(storage.POSTGRESQL):
-		statement = "CREATE TABLE IF NOT EXISTS members (id TEXT PRIMARY KEY, registration NUMERIC, heartbeat NUMERIC)"
-	case string(storage.MYSQL):
-		statement = "CREATE TABLE IF NOT EXISTS members (id VARCHAR(50) PRIMARY KEY, registration BIGINT, heartbeat BIGINT)"
-	case string(storage.SQLITE):
-		statement = "CREATE TABLE IF NOT EXISTS members (id TEXT PRIMARY KEY, registration INTEGER, heartbeat INTEGER)"
+	switch l.storageType {
+
+	// SQL Adapter
+	case string(storage.SQL):
+		var statement string
+		switch l.storageProvider {
+		case string(storage.POSTGRESQL):
+			statement = "CREATE TABLE IF NOT EXISTS members (id TEXT PRIMARY KEY, registration NUMERIC, heartbeat NUMERIC)"
+		case string(storage.MYSQL):
+			statement = "CREATE TABLE IF NOT EXISTS members (id VARCHAR(50) PRIMARY KEY, registration BIGINT, heartbeat BIGINT)"
+		case string(storage.SQLITE):
+			statement = "CREATE TABLE IF NOT EXISTS members (id TEXT PRIMARY KEY, registration INTEGER, heartbeat INTEGER)"
+		}
+		return l.storage.Execute(statement)
+
+	// DynamoDB Adapter
+	case string(storage.DYNAMODB):
+		input := &dynamodb.CreateTableInput{
+			TableName: aws.String("members"),
+			AttributeDefinitions: []types.AttributeDefinition{
+				{AttributeName: aws.String("id"), AttributeType: types.ScalarAttributeTypeS},
+			},
+			KeySchema: []types.KeySchemaElement{
+				{AttributeName: aws.String("id"), KeyType: types.KeyTypeHash},
+			},
+			ProvisionedThroughput: &types.ProvisionedThroughput{
+				ReadCapacityUnits:  aws.Int64(5),
+				WriteCapacityUnits: aws.Int64(5),
+			},
+		}
+
+		// Create table
+		a := storage.GetDynamoDBAdapterInstance()
+		_, err := a.DB.CreateTable(context.TODO(), input)
+		tableExistsError := new(types.ResourceInUseException)
+		if (err != nil) && (!errors.As(err, &tableExistsError)) {
+			return err
+		} else {
+			waiter := dynamodb.NewTableExistsWaiter(a.DB)
+			err = waiter.Wait(context.TODO(), &dynamodb.DescribeTableInput{
+				TableName: aws.String("members")}, 1*time.Minute)
+			if err != nil {
+				return err
+			} else {
+				// check if this needs to be a global table
+				global := viper.GetBool("storage.config.global")
+				if global {
+					region := viper.GetString("storage.config.region")
+					regions := viper.GetStringSlice("storage.config.regions")
+					replicationGroup := []types.Replica{}
+
+					for _, v := range regions {
+						if v != region {
+							replicationGroup = append(replicationGroup, types.Replica{RegionName: &v})
+						}
+					}
+					_, err := a.DB.CreateGlobalTable(
+						context.TODO(),
+						&dynamodb.CreateGlobalTableInput{GlobalTableName: aws.String("membership"), ReplicationGroup: replicationGroup},
+					)
+					if err != nil {
+						return err
+					}
+				}
+				return nil
+			}
+		}
+
+	default:
+		return fmt.Errorf("leader election isn't supported for the %s storage adapter", l.storageType)
 	}
-	return l.storage.Execute(statement)
 }
 
 // updateMembershipTable updates the database table used for leader election
 func (l *LeaderElection) updateMembershipTable() error {
 	now := time.Now().UnixMilli()
-	statement := fmt.Sprintf(`INSERT INTO members VALUES('%v', %v, %v)`, l.Id, now, now)
+	var statement string
+
+	switch l.storageType {
+	case string(storage.SQL):
+		statement = fmt.Sprintf(`INSERT INTO members VALUES('%v', %v, %v)`, l.Id, now, now)
+	case string(storage.DYNAMODB):
+		statement = fmt.Sprintf(`INSERT INTO members VALUE {'id': '%v', 'registration': %v, 'heartbeat': %v}`, l.Id, now, now)
+	}
+
 	return l.storage.Execute(statement)
 }
 
@@ -98,7 +173,7 @@ func (l *LeaderElection) heartbeat() {
 		time.Sleep(l.heartbeatInterval)
 		now := time.Now().UnixMilli()
 		slog.Info("updating heartbeat", slog.Int64("heartbeat", now))
-		statement := fmt.Sprintf(`UPDATE members SET heartbeat='%v' WHERE id='%s'`, now, l.Id)
+		statement := fmt.Sprintf(`UPDATE members SET heartbeat=%v WHERE id='%s'`, now, l.Id)
 		err := l.storage.Execute(statement)
 		if err != nil {
 			slog.Error("failed to update heartbeat", slog.Any("error", err))
@@ -184,6 +259,23 @@ func (l *LeaderElection) getLeader() (Member, error) {
 		if result.Error != nil {
 			err = fmt.Errorf("failed to get leader: %v", result.Error)
 		}
+	case string(storage.DYNAMODB):
+		key, marshalErr := attributevalue.MarshalMap(map[string]string{"id": l.Leader.Id})
+		if marshalErr != nil {
+			err = fmt.Errorf("failed to get leader: %v", marshalErr)
+		} else {
+			a := storage.GetDynamoDBAdapterInstance()
+			response, getItemErr := a.DB.GetItem(context.TODO(), &dynamodb.GetItemInput{
+				TableName: aws.String("members"),
+				Key:       key,
+			})
+
+			if getItemErr != nil {
+				err = fmt.Errorf("failed to get leader: %v", getItemErr)
+			} else {
+				err = attributevalue.UnmarshalMap(response.Item, &member)
+			}
+		}
 	}
 	return member, err
 }
@@ -192,13 +284,25 @@ func (l *LeaderElection) getLeader() (Member, error) {
 func (l *LeaderElection) Members() ([]Member, error) {
 	var members []Member
 	var err error
+	statement := "SELECT * FROM members"
 	switch l.storageType {
 	case string(storage.SQL):
-		statement := "SELECT * FROM members"
 		a := storage.GetSQLAdapterInstance()
 		result := a.DB.Raw(statement).Scan(&members)
 		if result.Error != nil {
 			err = fmt.Errorf("failed to list cluster members: %v", result.Error)
+		}
+	case string(storage.DYNAMODB):
+		statement := "SELECT * FROM members"
+		a := storage.GetDynamoDBAdapterInstance()
+		result, execErr := a.DB.ExecuteStatement(context.TODO(), &dynamodb.ExecuteStatementInput{Statement: &statement})
+		if execErr != nil {
+			err = fmt.Errorf("failed to list cluster members: %v", execErr)
+		} else {
+			marshalErr := attributevalue.UnmarshalListOfMaps(result.Items, &members)
+			if marshalErr != nil {
+				err = fmt.Errorf("failed to unmarshal cluster members: %v", marshalErr)
+			}
 		}
 	}
 	return members, err
