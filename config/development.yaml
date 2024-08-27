@@ -3,8 +3,8 @@ service:
   port: 8080
   url: http://localhost:8080
 storage:
-  # supported types are memory, sql and dynamodb
-  type: memory
+  # supported types are memory, sql, dynamodb and cassandra
+  type: cassandra
   # provider: postgresql
   # config:
   #   host: host.docker.internal
@@ -35,6 +35,14 @@ storage:
   #     - us-west-2
   #     - us-east-1
   #     - eu-west-1
+  provider: cassandra
+  config:
+    hosts:
+      - host.docker.internal
+    port: 9042
+    user: todo
+    password: todo
+    keyspace: todo
 leadership:
   # specify the interval to update node heartbeat
   heartbeat: 60s

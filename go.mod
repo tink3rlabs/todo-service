@@ -9,8 +9,10 @@ require (
 	github.com/go-chi/cors v1.2.1
 	github.com/go-chi/render v1.0.3
 	github.com/go-co-op/gocron/v2 v2.11.0
+	github.com/gocql/gocql v1.6.0
 	github.com/google/uuid v1.6.0
 	github.com/mitchellh/go-homedir v1.1.0
+	github.com/scylladb/gocqlx/v3 v3.0.0
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/viper v1.19.0
 	github.com/tink3rlabs/openapi-godoc v0.2.0
@@ -35,6 +37,10 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.26.4 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.30.3 // indirect
 	github.com/aws/smithy-go v1.20.3 // indirect
+	github.com/golang/snappy v0.0.4 // indirect
+	github.com/hailocab/go-hostpool v0.0.0-20160125115350-e80d13ce29ed // indirect
+	github.com/scylladb/go-reflectx v1.0.1 // indirect
+	gopkg.in/inf.v0 v0.9.1 // indirect
 )
 
 require (

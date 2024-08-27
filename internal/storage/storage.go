@@ -26,10 +26,11 @@ type StorageProviders string
 type StorageAdapterFactory struct{}
 
 const (
-	DEFAULT  StorageAdapterType = "default"
-	MEMORY   StorageAdapterType = "memory"
-	SQL      StorageAdapterType = "sql"
-	DYNAMODB StorageAdapterType = "dynamodb"
+	DEFAULT   StorageAdapterType = "default"
+	MEMORY    StorageAdapterType = "memory"
+	SQL       StorageAdapterType = "sql"
+	DYNAMODB  StorageAdapterType = "dynamodb"
+	CASSANDRA StorageAdapterType = "cassandra"
 )
 
 const (
@@ -49,6 +50,8 @@ func (s StorageAdapterFactory) GetInstance(adapterType StorageAdapterType) (Stor
 		return GetSQLAdapterInstance(), nil
 	case DYNAMODB:
 		return GetDynamoDBAdapterInstance(), nil
+	case CASSANDRA:
+		return GetCassandraAdapterInstance(), nil
 	default:
 		return nil, errors.New("this storage adapter type isn't supported")
 	}
