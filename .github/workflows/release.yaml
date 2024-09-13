@@ -13,6 +13,7 @@ defaults:
 
 jobs:
   release:
+    needs: [conventional-commits, lint, test]
     runs-on: ubuntu-latest
     permissions:
       contents: write
