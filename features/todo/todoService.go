@@ -25,15 +25,20 @@ func NewTodoService() *TodoService {
 }
 
 func (t *TodoService) ListTodos(limit int, cursor string) ([]types.Todo, string, error) {
-	return t.storage.ListTodos(limit, cursor)
+	todos := []types.Todo{}
+	next, err := t.storage.List(&todos, "Id", limit, cursor)
+
+	return todos, next, err
 }
 
 func (t *TodoService) GetTodo(id string) (types.Todo, error) {
-	return t.storage.GetTodo(id)
+	todo := types.Todo{}
+	err := t.storage.Get(&todo, "Id", id)
+	return todo, err
 }
 
 func (t *TodoService) DeleteTodo(id string) error {
-	return t.storage.DeleteTodo(id)
+	return t.storage.Delete(&types.Todo{}, "Id", id)
 }
 
 func (t *TodoService) CreateTodo(todoToCreate types.TodoUpdate) (types.Todo, error) {
@@ -62,6 +67,6 @@ func (t *TodoService) CreateTodo(todoToCreate types.TodoUpdate) (types.Todo, err
 	todo.Id = id.String()
 	todo.Summary = todoToCreate.Summary
 
-	err = t.storage.CreateTodo(todo)
+	err = t.storage.Create(todo)
 	return todo, err
 }

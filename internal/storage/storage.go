@@ -4,8 +4,6 @@ import (
 	"embed"
 	"errors"
 
-	"todo-service/types"
-
 	"github.com/spf13/viper"
 )
 
@@ -15,10 +13,10 @@ var ErrNotFound = errors.New("not found")
 type StorageAdapter interface {
 	Execute(statement string) error
 	Ping() error
-	ListTodos(limit int, cursor string) ([]types.Todo, string, error)
-	GetTodo(id string) (types.Todo, error)
-	DeleteTodo(id string) error
-	CreateTodo(todo types.Todo) error
+	Create(item any) error
+	Get(dest any, itemKey string, itemValue string) error
+	Delete(item any, itemKey string, itemValue string) error
+	List(items any, itemKey string, limit int, cursor string) (string, error)
 }
 
 type StorageAdapterType string

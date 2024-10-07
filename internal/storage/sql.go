@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"log/slog"
+	"reflect"
 	"sync"
 
 	"github.com/spf13/viper"
@@ -16,7 +17,6 @@ import (
 	"gorm.io/gorm/schema"
 
 	slogger "todo-service/internal/logger"
-	"todo-service/types"
 )
 
 type SQLAdapter struct {
@@ -93,42 +93,45 @@ func (s *SQLAdapter) Ping() error {
 	return db.Ping()
 }
 
-func (s *SQLAdapter) ListTodos(limit int, cursor string) ([]types.Todo, string, error) {
-	todos := []types.Todo{}
+func (s *SQLAdapter) Create(item any) error {
+	result := s.DB.Create(reflect.ValueOf(item).Interface())
+	return result.Error
+}
+
+func (s *SQLAdapter) Get(dest any, itemKey string, itemValue string) error {
+	result := s.DB.Where(itemKey+" = ?", itemValue).Find(dest)
+	if result.RowsAffected == 0 {
+		return ErrNotFound
+	}
+	return result.Error
+}
+
+func (s *SQLAdapter) Delete(item any, itemKey string, itemValue string) error {
+	result := s.DB.Where(itemKey+" = ?", itemValue).Delete(item)
+	return result.Error
+}
+
+func (s *SQLAdapter) List(items any, itemKey string, limit int, cursor string) (string, error) {
 	nextId := ""
 
 	id, err := base64.StdEncoding.DecodeString(cursor)
 	if err != nil {
-		return todos, "", fmt.Errorf("failed to decode next cursor: %v", err)
+		return "", fmt.Errorf("failed to decode next cursor: %v", err)
 	}
 
 	// Get one extra item to be able to set that item's Id as the cursor for the next request
-	result := s.DB.Limit(limit+1).Where("id >= ?", string(id)).Find(&todos)
+	result := s.DB.Limit(limit+1).Where(itemKey+" >= ?", string(id)).Find(items)
 
 	// If we have a full list, set the Id of the extra last item as the next cursor and remove it from the list of items to return
-	if len(todos) == limit+1 {
-		nextId = base64.StdEncoding.EncodeToString([]byte(todos[len(todos)-1].Id))
-		todos = todos[:len(todos)-1]
+	v := reflect.ValueOf(items)
+	if (v.Elem().Len()) == limit+1 {
+		lastItem := v.Elem().Index(v.Elem().Len() - 1)
+		nextId = base64.StdEncoding.EncodeToString([]byte(lastItem.FieldByName(itemKey).String()))
+		// Check if the value is a pointer and if it's settable
+		if v.Kind() == reflect.Ptr && v.Elem().CanSet() {
+			v.Elem().Set(v.Elem().Slice(0, v.Elem().Len()-1))
+		}
 	}
 
-	return todos, nextId, result.Error
-}
-
-func (s *SQLAdapter) GetTodo(id string) (types.Todo, error) {
-	todo := types.Todo{}
-	result := s.DB.Where("Id = ?", id).Find(&todo)
-	if result.RowsAffected == 0 {
-		return todo, ErrNotFound
-	}
-	return todo, result.Error
-}
-
-func (s *SQLAdapter) DeleteTodo(id string) error {
-	result := s.DB.Where("Id = ?", id).Delete(&types.Todo{})
-	return result.Error
-}
-
-func (s *SQLAdapter) CreateTodo(todo types.Todo) error {
-	result := s.DB.Create(&todo)
-	return result.Error
+	return nextId, result.Error
 }

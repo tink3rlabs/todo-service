@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"reflect"
+	"strings"
 	"sync"
 
 	"github.com/spf13/viper"
@@ -17,7 +19,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 
 	"todo-service/internal/logger"
-	"todo-service/types"
 )
 
 type DynamoDBAdapter struct {
@@ -26,7 +27,6 @@ type DynamoDBAdapter struct {
 
 var dynamoDBAdapterLock = &sync.Mutex{}
 var dynamoDBAdapterInstance *DynamoDBAdapter
-var todosTable = "todos"
 
 func GetDynamoDBAdapterInstance() *DynamoDBAdapter {
 	if dynamoDBAdapterInstance == nil {
@@ -72,30 +72,92 @@ func (s *DynamoDBAdapter) Ping() error {
 	return err
 }
 
-func (s *DynamoDBAdapter) ListTodos(limit int, cursor string) ([]types.Todo, string, error) {
-	todos := []types.Todo{}
+func (s *DynamoDBAdapter) Create(item any) error {
+	i, err := attributevalue.MarshalMapWithOptions(item, func(eo *attributevalue.EncoderOptions) { eo.TagKey = "json" })
+	if err != nil {
+		return fmt.Errorf("failed to marshal inpu item into dynamodb item, %v", err)
+	}
+
+	_, err = s.DB.PutItem(context.TODO(), &dynamodb.PutItemInput{
+		TableName: aws.String(s.getTableName(item)),
+		Item:      i,
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to create item: %v", err)
+	}
+
+	return nil
+}
+
+func (s *DynamoDBAdapter) Get(dest any, itemKey string, itemValue string) error {
+	key, err := attributevalue.MarshalMap(map[string]string{strings.ToLower(itemKey): itemValue})
+	if err != nil {
+		return fmt.Errorf("failed to marshal item id into dynamodb attribute, %v", err)
+	}
+
+	response, err := s.DB.GetItem(context.TODO(), &dynamodb.GetItemInput{
+		TableName: aws.String(s.getTableName(dest)),
+		Key:       key,
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to get item, %v", err)
+	}
+
+	if response.Item == nil {
+		return ErrNotFound
+	} else {
+		err = attributevalue.UnmarshalMap(response.Item, &dest)
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal dynamodb Get result into dest, %v", err)
+		}
+
+		return nil
+	}
+}
+
+func (s *DynamoDBAdapter) Delete(item any, itemKey string, itemValue string) error {
+	key, err := attributevalue.MarshalMap(map[string]string{strings.ToLower(itemKey): itemValue})
+	if err != nil {
+		return fmt.Errorf("failed to marshal item id into dynamodb attribute, %v", err)
+	}
+
+	_, err = s.DB.DeleteItem(context.TODO(), &dynamodb.DeleteItemInput{
+		TableName: aws.String(s.getTableName(item)),
+		Key:       key,
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to delete item, %v", err)
+	}
+
+	return nil
+}
+
+func (s *DynamoDBAdapter) List(items any, itemKey string, limit int, cursor string) (string, error) {
 	nextId := ""
 
 	input := &dynamodb.ScanInput{
-		TableName: aws.String(todosTable),
+		TableName: aws.String(s.getTableName(items)),
 		Limit:     aws.Int32(int32(limit)),
 	}
 
 	id, err := base64.StdEncoding.DecodeString(cursor)
 	if err != nil {
-		return todos, "", fmt.Errorf("failed to decode next cursor: %v", err)
+		return "", fmt.Errorf("failed to decode next cursor: %v", err)
 	}
 
 	if len(id) > 0 {
 		m := map[string]string{}
 		err = json.Unmarshal(id, &m)
 		if err != nil {
-			return todos, nextId, fmt.Errorf("failed to Unmarshal cursor, %v", err)
+			return nextId, fmt.Errorf("failed to Unmarshal cursor, %v", err)
 		}
 
 		startKey, err := attributevalue.MarshalMap(m)
 		if err != nil {
-			return todos, nextId, fmt.Errorf("failed to marshal next cursor into dynamodb StartKey, %v", err)
+			return nextId, fmt.Errorf("failed to marshal next cursor into dynamodb StartKey, %v", err)
 		}
 
 		input.ExclusiveStartKey = startKey
@@ -104,89 +166,34 @@ func (s *DynamoDBAdapter) ListTodos(limit int, cursor string) ([]types.Todo, str
 	response, err := s.DB.Scan(context.TODO(), input)
 
 	if err != nil {
-		return todos, nextId, fmt.Errorf("failed to list todos, %v", err)
+		return nextId, fmt.Errorf("failed to list todos, %v", err)
 	}
 
-	err = attributevalue.UnmarshalListOfMaps(response.Items, &todos)
+	err = attributevalue.UnmarshalListOfMaps(response.Items, items)
 	if err != nil {
-		return todos, nextId, fmt.Errorf("failed to marshal scan response into todo list, %v", err)
+		return nextId, fmt.Errorf("failed to marshal scan response into item list, %v", err)
 	}
 
 	if len(response.LastEvaluatedKey) != 0 {
 		m := map[string]string{}
 		err := attributevalue.UnmarshalMap(response.LastEvaluatedKey, &m)
 		if err != nil {
-			return todos, nextId, fmt.Errorf("failed to unmarshal LastEvaluatedKey, %v", err)
+			return nextId, fmt.Errorf("failed to unmarshal LastEvaluatedKey, %v", err)
 		}
 		j, err := json.Marshal(m)
 		if err != nil {
-			return todos, nextId, fmt.Errorf("failed to encode LastEvaluatedKey into nextId cursor, %v", err)
+			return nextId, fmt.Errorf("failed to encode LastEvaluatedKey into nextId cursor, %v", err)
 		}
 		nextId = base64.StdEncoding.EncodeToString([]byte(j))
 	}
-	return todos, nextId, err
+	return nextId, err
 }
 
-func (s *DynamoDBAdapter) GetTodo(id string) (types.Todo, error) {
-	todo := types.Todo{}
-	key, err := attributevalue.MarshalMap(map[string]string{"id": id})
-	if err != nil {
-		return todo, fmt.Errorf("failed to marshal todo id into dynamodb attribute, %v", err)
-	}
-
-	response, err := s.DB.GetItem(context.TODO(), &dynamodb.GetItemInput{
-		TableName: aws.String(todosTable),
-		Key:       key,
-	})
-
-	if err != nil {
-		return todo, fmt.Errorf("failed to get todo, %v", err)
-	}
-
-	err = attributevalue.UnmarshalMap(response.Item, &todo)
-	if err != nil {
-		return todo, fmt.Errorf("failed to unmarshal dynamodb Get result into todo, %v", err)
-	}
-
-	if todo == (types.Todo{}) {
-		return todo, ErrNotFound
-	}
-
-	return todo, nil
-}
-
-func (s *DynamoDBAdapter) DeleteTodo(id string) error {
-	key, err := attributevalue.MarshalMap(map[string]string{"id": id})
-	if err != nil {
-		return fmt.Errorf("failed to marshal todo id into dynamodb attribute, %v", err)
-	}
-
-	_, err = s.DB.DeleteItem(context.TODO(), &dynamodb.DeleteItemInput{
-		TableName: aws.String(todosTable),
-		Key:       key,
-	})
-
-	if err != nil {
-		return fmt.Errorf("failed to delete todo, %v", err)
-	}
-
-	return nil
-}
-
-func (s *DynamoDBAdapter) CreateTodo(todo types.Todo) error {
-	item, err := attributevalue.MarshalMapWithOptions(todo, func(eo *attributevalue.EncoderOptions) { eo.TagKey = "json" })
-	if err != nil {
-		return fmt.Errorf("failed to marshal todo into dynamodb item, %v", err)
-	}
-
-	_, err = s.DB.PutItem(context.TODO(), &dynamodb.PutItemInput{
-		TableName: aws.String(todosTable),
-		Item:      item,
-	})
-
-	if err != nil {
-		return fmt.Errorf("failed to create todo: %v", err)
-	}
-
-	return nil
+func (s *DynamoDBAdapter) getTableName(items any) string {
+	tableName := ""
+	tableName = reflect.TypeOf(items).String()
+	tableName = tableName[strings.LastIndex(tableName, ".")+1:]
+	tableName = strings.ToLower(tableName)
+	tableName += "s"
+	return tableName
 }
