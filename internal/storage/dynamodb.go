@@ -84,7 +84,7 @@ func (s *DynamoDBAdapter) Create(item any) error {
 	})
 
 	if err != nil {
-		return fmt.Errorf("failed to create item: %v", err)
+		return fmt.Errorf("failed to create or update item: %v", err)
 	}
 
 	return nil
@@ -115,6 +115,10 @@ func (s *DynamoDBAdapter) Get(dest any, itemKey string, itemValue string) error 
 
 		return nil
 	}
+}
+
+func (s *DynamoDBAdapter) Update(item any, itemKey string, itemValue string) error {
+	return s.Create(item)
 }
 
 func (s *DynamoDBAdapter) Delete(item any, itemKey string, itemValue string) error {

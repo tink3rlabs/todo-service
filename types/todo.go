@@ -15,9 +15,14 @@ package types
 //	        type: string
 //	        description: The Todo's summary
 //	        example: Pick up the groceries
+//	      done:
+//	        type: boolean
+//	        description: An indicator that tells if the Todo item is complete
+//	        example: false
 type Todo struct {
 	Id      string `json:"id"`
 	Summary string `json:"summary"`
+	Done    bool   `json:"done"`
 }
 
 // @openapi
@@ -31,8 +36,13 @@ type Todo struct {
 //	        type: string
 //	        description: The Todo's summary
 //	        example: Pick up the groceries
+//	      done:
+//	        type: boolean
+//	        description: An indicator that tells if the Todo item is complete
+//	        example: false
 type TodoUpdate struct {
 	Summary string `json:"summary"`
+	Done    bool   `json:"done"`
 }
 
 // @openapi

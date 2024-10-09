@@ -4,6 +4,7 @@ go 1.22.4
 
 require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.27
+	github.com/evanphx/json-patch/v5 v5.9.0
 	github.com/getkin/kin-openapi v0.125.0
 	github.com/go-chi/chi/v5 v5.0.12
 	github.com/go-chi/cors v1.2.1
@@ -35,6 +36,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.26.4 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.30.3 // indirect
 	github.com/aws/smithy-go v1.20.3 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
 )
 
 require (

@@ -2,13 +2,16 @@ package routes
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"strconv"
 
+	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
 
 	"todo-service/features/todo"
+	"todo-service/internal/errors"
 	"todo-service/internal/middlewares"
 	"todo-service/types"
 )
@@ -16,7 +19,6 @@ import (
 type TodoRouter struct {
 	Router    *chi.Mux
 	service   *todo.TodoService
-	formatter Formatter
 	validator middlewares.Validator
 }
 
@@ -50,10 +52,30 @@ var createSchema = map[string]string{
 	"body": `{
 		"type": "object",
 		"properties": {
-			"summary": { "type": "string" }
+			"summary": { "type": "string" },
+			"done": { "type": "boolean" }
 		},
 		"required": ["summary"],
 		"additionalProperties": false
+	}`,
+}
+
+var replaceSchema = map[string]string{
+	"body": `{
+		"type": "object",
+		"properties": {
+			"summary": { "type": "string" },
+			"done": { "type": "boolean" }
+		},
+		"required": ["summary", "done"],
+		"additionalProperties": false
+	}`,
+	"params": `{
+		"type": "object",
+		"properties": {
+			"id": { "type": "string" }
+		},
+		"required": ["id"]
 	}`,
 }
 
@@ -69,12 +91,14 @@ var idSchema = map[string]string{
 
 func NewTodoRouter() *TodoRouter {
 	t := TodoRouter{}
-
+	h := middlewares.ErrorHandler{}
 	router := chi.NewRouter()
-	router.Get("/{id}", t.validator.ValidateRequest(idSchema, t.GetTodo))
-	router.Delete("/{id}", t.validator.ValidateRequest(idSchema, t.DeleteTodo))
-	router.Post("/", t.validator.ValidateRequest(createSchema, t.CreateTodo))
-	router.Get("/", t.ListTodos)
+	router.Get("/{id}", t.validator.ValidateRequest(idSchema, h.Wrap(t.GetTodo)))
+	router.Delete("/{id}", t.validator.ValidateRequest(idSchema, h.Wrap(t.DeleteTodo)))
+	router.Put("/{id}", t.validator.ValidateRequest(replaceSchema, h.Wrap(t.ReplaceTodo)))
+	router.Patch("/{id}", t.validator.ValidateRequest(idSchema, h.Wrap(t.UpdateTodo)))
+	router.Post("/", t.validator.ValidateRequest(createSchema, h.Wrap(t.CreateTodo)))
+	router.Get("/", h.Wrap(t.ListTodos))
 	t.Router = router
 	t.service = todo.NewTodoService()
 
@@ -111,7 +135,7 @@ func NewTodoRouter() *TodoRouter {
 //	          application/json:
 //	            schema:
 //	              $ref: '#/components/schemas/TodoList'
-func (t *TodoRouter) ListTodos(w http.ResponseWriter, r *http.Request) {
+func (t *TodoRouter) ListTodos(w http.ResponseWriter, r *http.Request) error {
 	cursor := r.URL.Query().Get("next")
 
 	limit, err := strconv.ParseInt(r.URL.Query().Get("limit"), 10, 64)
@@ -120,7 +144,11 @@ func (t *TodoRouter) ListTodos(w http.ResponseWriter, r *http.Request) {
 	}
 
 	todos, next, err := t.service.ListTodos(int(limit), cursor)
-	t.formatter.Respond(types.TodoList{Todos: todos, Next: next}, err, w, r)
+	if err != nil {
+		return err
+	}
+	render.JSON(w, r, types.TodoList{Todos: todos, Next: next})
+	return nil
 }
 
 // @openapi
@@ -136,7 +164,7 @@ func (t *TodoRouter) ListTodos(w http.ResponseWriter, r *http.Request) {
 //	    parameters:
 //	      - name: id
 //	        in: path
-//	        description: The identifier of the Todo to retrieve
+//	        description: The identifier of the Todo
 //	        required: true
 //	        schema:
 //	          type: string
@@ -149,10 +177,14 @@ func (t *TodoRouter) ListTodos(w http.ResponseWriter, r *http.Request) {
 //	              $ref: '#/components/schemas/Todo'
 //	      '404':
 //	         $ref: '#/components/responses/NotFound'
-func (t *TodoRouter) GetTodo(w http.ResponseWriter, r *http.Request) {
+func (t *TodoRouter) GetTodo(w http.ResponseWriter, r *http.Request) error {
 	id := chi.URLParam(r, "id")
 	todo, err := t.service.GetTodo(id)
-	t.formatter.Respond(todo, err, w, r)
+	if err != nil {
+		return err
+	}
+	render.JSON(w, r, todo)
+	return nil
 }
 
 // @openapi
@@ -168,22 +200,21 @@ func (t *TodoRouter) GetTodo(w http.ResponseWriter, r *http.Request) {
 //	    parameters:
 //	      - name: id
 //	        in: path
-//	        description: The identifier of the Todo to delete
+//	        description: The identifier of the Todo
 //	        required: true
 //	        schema:
 //	          type: string
 //	    responses:
 //	      '204':
 //	        description: successful operation
-func (t *TodoRouter) DeleteTodo(w http.ResponseWriter, r *http.Request) {
+func (t *TodoRouter) DeleteTodo(w http.ResponseWriter, r *http.Request) error {
 	id := chi.URLParam(r, "id")
 	err := t.service.DeleteTodo(id)
 	if err != nil {
-		t.formatter.Respond(nil, err, w, r)
-	} else {
-		render.Status(r, 204)
-		render.NoContent(w, r)
+		return err
 	}
+	render.NoContent(w, r)
+	return nil
 }
 
 // @openapi
@@ -195,9 +226,9 @@ func (t *TodoRouter) DeleteTodo(w http.ResponseWriter, r *http.Request) {
 //	      - todos
 //	    summary: Create a Todo
 //	    description: Create a new Todo
-//	    operationId: addTodo
+//	    operationId: createTodo
 //	    requestBody:
-//	      description: Create a new pet in the store
+//	      description: Create a new Todo
 //	      content:
 //	        application/json:
 //	          schema:
@@ -205,18 +236,153 @@ func (t *TodoRouter) DeleteTodo(w http.ResponseWriter, r *http.Request) {
 //	    responses:
 //	      '201':
 //	        description: successful operation
-func (t *TodoRouter) CreateTodo(w http.ResponseWriter, r *http.Request) {
+func (t *TodoRouter) CreateTodo(w http.ResponseWriter, r *http.Request) error {
 	var todoToCreate types.TodoUpdate
+
 	decodeErr := json.NewDecoder(r.Body).Decode(&todoToCreate)
 	if decodeErr != nil {
-		t.formatter.Respond(nil, decodeErr, w, r)
+		return decodeErr
 	}
 
 	todo, err := t.service.CreateTodo(todoToCreate)
 	if err != nil {
-		t.formatter.Respond(nil, err, w, r)
-	} else {
-		render.Status(r, 201)
-		render.JSON(w, r, todo)
+		return err
 	}
+
+	render.Status(r, http.StatusCreated)
+	render.JSON(w, r, todo)
+	return nil
+}
+
+// @openapi
+// paths:
+//
+//	/todos/{id}:
+//	  put:
+//	    tags:
+//	      - todos
+//	    summary: Replace a Todo
+//	    description: Replace a Todo
+//	    operationId: replaceTodo
+//	    parameters:
+//	      - name: id
+//	        in: path
+//	        description: The identifier of the Todo
+//	        required: true
+//	        schema:
+//	          type: string
+//	    requestBody:
+//	      description: Updated Todo
+//	      content:
+//	        application/json:
+//	          schema:
+//	            $ref: '#/components/schemas/TodoUpdate'
+//	    responses:
+//	      '204':
+//	        description: successful operation
+//	      '404':
+//	         $ref: '#/components/responses/NotFound'
+func (t *TodoRouter) ReplaceTodo(w http.ResponseWriter, r *http.Request) error {
+	id := chi.URLParam(r, "id")
+	var todoToUpdate types.TodoUpdate
+
+	decoder := json.NewDecoder(r.Body)
+	err := decoder.Decode(&todoToUpdate)
+	if err != nil {
+		return err
+	}
+
+	currentRecord, err := t.service.GetTodo(id)
+	if err != nil {
+		return &errors.NotFound{Message: "Todo not found"}
+	}
+
+	todo := types.Todo{Id: currentRecord.Id, Summary: todoToUpdate.Summary, Done: todoToUpdate.Done}
+	err = t.service.UpdateTodo(todo)
+	if err != nil {
+		return err
+	}
+
+	render.NoContent(w, r)
+	return nil
+}
+
+// @openapi
+// paths:
+//
+//	/todos/{id}:
+//	  patch:
+//	    tags:
+//	      - todos
+//	    summary: Update a Todo
+//	    description: Update a Todo using [JSON Patch](https://jsonpatch.com/)
+//	    operationId: updateTodo
+//	    parameters:
+//	      - name: id
+//	        in: path
+//	        description: The identifier of the Todo
+//	        required: true
+//	        schema:
+//	          type: string
+//	    requestBody:
+//	      description: JSON Patch operations to perform in order to update the Todo item
+//	      content:
+//	        application/json-patch+json:
+//	          schema:
+//	            type: array
+//	            items:
+//	              $ref: "#/components/schemas/PatchBody"
+//	            example:
+//	              - {"op": "replace", "path": "/summary", "value": "An updated TODO item summary"}
+//	              - {"op": "replace", "path": "/done", "value": true}
+//	    responses:
+//	      '204':
+//	        description: successful operation
+//	      '404':
+//	         $ref: '#/components/responses/NotFound'
+func (t *TodoRouter) UpdateTodo(w http.ResponseWriter, r *http.Request) error {
+	id := chi.URLParam(r, "id")
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		return err
+	}
+
+	patch, err := jsonpatch.DecodePatch(body)
+	if err != nil {
+		return err
+	}
+
+	currentRecord, err := t.service.GetTodo(id)
+	if err != nil {
+		return &errors.NotFound{Message: "Todo not found"}
+	}
+
+	currentBytes, err := json.Marshal(currentRecord)
+	if err != nil {
+		return err
+	}
+
+	modifiedBytes, err := patch.Apply(currentBytes)
+	if err != nil {
+		return err
+	}
+
+	var modified types.Todo
+	err = json.Unmarshal(modifiedBytes, &modified)
+	if err != nil {
+		return err
+	}
+
+	if modified.Id != currentRecord.Id {
+		return &errors.BadRequest{Message: "Id field can't be changed"}
+	}
+
+	err = t.service.UpdateTodo(modified)
+	if err != nil {
+		return err
+	}
+
+	render.NoContent(w, r)
+	return nil
 }

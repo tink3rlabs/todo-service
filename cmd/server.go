@@ -18,12 +18,13 @@ import (
 	"github.com/spf13/viper"
 	openapigodoc "github.com/tink3rlabs/openapi-godoc"
 
+	"todo-service/internal/errors"
 	"todo-service/internal/health"
 	"todo-service/internal/leadership"
 	"todo-service/internal/logger"
+	"todo-service/internal/middlewares"
 	"todo-service/internal/storage"
 	"todo-service/routes"
-	"todo-service/types"
 )
 
 var serverCommand = &cobra.Command{
@@ -45,7 +46,7 @@ func initRoutes() *chi.Mux {
 		middleware.Recoverer,       // Recover from panics without crashing server
 		cors.Handler(cors.Options{
 			AllowedOrigins:   []string{"https://*", "http://*"},
-			AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+			AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 			AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
 			ExposedHeaders:   []string{"Link"},
 			AllowCredentials: false,
@@ -179,21 +180,18 @@ func runServer(cmd *cobra.Command, args []string) error {
 
 	//health check - readiness
 	healthChecker := health.NewHealthChecker()
-	router.Get("/health/readiness", func(w http.ResponseWriter, r *http.Request) {
+	h := middlewares.ErrorHandler{}
+	router.Get("/health/readiness", h.Wrap(func(w http.ResponseWriter, r *http.Request) error {
 		err := healthChecker.Check(viper.GetBool("health.storage"), viper.GetStringSlice("health.dependencies"))
 		if err != nil {
 			slog.Error("health check readiness failed", slog.Any("error", err.Error()))
-			response := types.ErrorResponse{
-				Status: http.StatusText(http.StatusServiceUnavailable),
-				Error:  err.Error(),
-			}
-			render.Status(r, http.StatusServiceUnavailable)
-			render.JSON(w, r, response)
+			return &errors.ServiceUnavailable{Message: err.Error()}
 		} else {
 			render.Status(r, http.StatusNoContent)
 			render.NoContent(w, r)
+			return nil
 		}
-	})
+	}))
 
 	port := viper.GetString("service.port")
 	listenAddress := fmt.Sprintf(":%s", port)

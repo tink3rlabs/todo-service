@@ -4,6 +4,7 @@ migrations:
   - migrate: >
       CREATE TABLE IF NOT EXISTS todos (
         id TEXT PRIMARY KEY,
-        summary TEXT
+        summary TEXT,
+        done INTEGER
       )
     rollback: DROP TABLE IF EXISTS todos
