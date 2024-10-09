@@ -76,6 +76,7 @@ Temporary Items
 !.vscode/launch.json
 !.vscode/extensions.json
 !.vscode/*.code-snippets
+__debug*
 
 # Local History for Visual Studio Code
 .history/

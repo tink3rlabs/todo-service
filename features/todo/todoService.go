@@ -41,6 +41,10 @@ func (t *TodoService) DeleteTodo(id string) error {
 	return t.storage.Delete(&types.Todo{}, "Id", id)
 }
 
+func (t *TodoService) UpdateTodo(todoToUpdate types.Todo) error {
+	return t.storage.Update(todoToUpdate, "Id", todoToUpdate.Id)
+}
+
 func (t *TodoService) CreateTodo(todoToCreate types.TodoUpdate) (types.Todo, error) {
 	todo := types.Todo{}
 
@@ -66,6 +70,7 @@ func (t *TodoService) CreateTodo(todoToCreate types.TodoUpdate) (types.Todo, err
 
 	todo.Id = id.String()
 	todo.Summary = todoToCreate.Summary
+	todo.Done = todoToCreate.Done
 
 	err = t.storage.Create(todo)
 	return todo, err

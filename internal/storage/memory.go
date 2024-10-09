@@ -57,6 +57,17 @@ func (m *MemoryAdapter) Get(dest any, itemKey string, itemValue string) error {
 	return ErrNotFound
 }
 
+func (m *MemoryAdapter) Update(item any, itemKey string, itemValue string) error {
+	t := reflect.TypeOf(item).String()
+	for i, existingItem := range m.store[t] {
+		if reflect.ValueOf(existingItem).FieldByName(itemKey).String() == itemValue {
+			m.store[t][i] = item
+			return nil
+		}
+	}
+	return ErrNotFound
+}
+
 func (m *MemoryAdapter) Delete(item any, itemKey string, itemValue string) error {
 	t := strings.ReplaceAll(reflect.TypeOf(item).String(), "*", "")
 	for k, v := range m.store[t] {

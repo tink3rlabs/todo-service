@@ -16,6 +16,7 @@ type StorageAdapter interface {
 	Create(item any) error
 	Get(dest any, itemKey string, itemValue string) error
 	Delete(item any, itemKey string, itemValue string) error
+	Update(item any, itemKey string, itemValue string) error
 	List(items any, itemKey string, limit int, cursor string) (string, error)
 }
 

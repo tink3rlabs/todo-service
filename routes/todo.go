@@ -2,9 +2,12 @@ package routes
 
 import (
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 	"strconv"
 
+	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
 
@@ -50,10 +53,30 @@ var createSchema = map[string]string{
 	"body": `{
 		"type": "object",
 		"properties": {
-			"summary": { "type": "string" }
+			"summary": { "type": "string" },
+			"done": { "type": "boolean" }
 		},
 		"required": ["summary"],
 		"additionalProperties": false
+	}`,
+}
+
+var putSchema = map[string]string{
+	"body": `{
+		"type": "object",
+		"properties": {
+			"summary": { "type": "string" },
+			"done": { "type": "boolean" }
+		},
+		"required": ["summary", "done"],
+		"additionalProperties": false
+	}`,
+	"params": `{
+		"type": "object",
+		"properties": {
+			"id": { "type": "string" }
+		},
+		"required": ["id"]
 	}`,
 }
 
@@ -73,6 +96,8 @@ func NewTodoRouter() *TodoRouter {
 	router := chi.NewRouter()
 	router.Get("/{id}", t.validator.ValidateRequest(idSchema, t.GetTodo))
 	router.Delete("/{id}", t.validator.ValidateRequest(idSchema, t.DeleteTodo))
+	router.Put("/{id}", t.validator.ValidateRequest(putSchema, t.ReplaceTodo))
+	router.Patch("/{id}", t.UpdateTodo)
 	router.Post("/", t.validator.ValidateRequest(createSchema, t.CreateTodo))
 	router.Get("/", t.ListTodos)
 	t.Router = router
@@ -136,7 +161,7 @@ func (t *TodoRouter) ListTodos(w http.ResponseWriter, r *http.Request) {
 //	    parameters:
 //	      - name: id
 //	        in: path
-//	        description: The identifier of the Todo to retrieve
+//	        description: The identifier of the Todo
 //	        required: true
 //	        schema:
 //	          type: string
@@ -168,7 +193,7 @@ func (t *TodoRouter) GetTodo(w http.ResponseWriter, r *http.Request) {
 //	    parameters:
 //	      - name: id
 //	        in: path
-//	        description: The identifier of the Todo to delete
+//	        description: The identifier of the Todo
 //	        required: true
 //	        schema:
 //	          type: string
@@ -195,9 +220,9 @@ func (t *TodoRouter) DeleteTodo(w http.ResponseWriter, r *http.Request) {
 //	      - todos
 //	    summary: Create a Todo
 //	    description: Create a new Todo
-//	    operationId: addTodo
+//	    operationId: createTodo
 //	    requestBody:
-//	      description: Create a new pet in the store
+//	      description: Create a new Todo
 //	      content:
 //	        application/json:
 //	          schema:
@@ -218,5 +243,122 @@ func (t *TodoRouter) CreateTodo(w http.ResponseWriter, r *http.Request) {
 	} else {
 		render.Status(r, 201)
 		render.JSON(w, r, todo)
+	}
+}
+
+// @openapi
+// paths:
+//
+//	/todos/{id}:
+//	  put:
+//	    tags:
+//	      - todos
+//	    summary: Replace a Todo
+//	    description: Replace a Todo
+//	    operationId: replaceTodo
+//	    parameters:
+//	      - name: id
+//	        in: path
+//	        description: The identifier of the Todo
+//	        required: true
+//	        schema:
+//	          type: string
+//	    requestBody:
+//	      description: Updated Todo
+//	      content:
+//	        application/json:
+//	          schema:
+//	            $ref: '#/components/schemas/TodoUpdate'
+//	    responses:
+//	      '204':
+//	        description: successful operation
+func (t *TodoRouter) ReplaceTodo(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	var todoToUpdate types.TodoUpdate
+
+	decoder := json.NewDecoder(r.Body)
+	err := decoder.Decode(&todoToUpdate)
+	if err != nil {
+		t.formatter.Respond(nil, err, w, r)
+	}
+
+	todo := types.Todo{Id: id, Summary: todoToUpdate.Summary, Done: todoToUpdate.Done}
+	err = t.service.UpdateTodo(todo)
+	if err != nil {
+		t.formatter.Respond(nil, err, w, r)
+	} else {
+		render.NoContent(w, r)
+	}
+}
+
+// @openapi
+// paths:
+//
+//	/todos/{id}:
+//	  patch:
+//	    tags:
+//	      - todos
+//	    summary: Update a Todo
+//	    description: Update a Todo
+//	    operationId: updateTodo
+//	    parameters:
+//	      - name: id
+//	        in: path
+//	        description: The identifier of the Todo
+//	        required: true
+//	        schema:
+//	          type: string
+//	    requestBody:
+//	      description: Updated Todo
+//	      content:
+//	        application/json-patch+json:
+//	          schema:
+//	            $ref: '#/components/schemas/PatchRequest'
+//	    responses:
+//	      '204':
+//	        description: successful operation
+func (t *TodoRouter) UpdateTodo(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		t.formatter.Respond(nil, err, w, r)
+	}
+
+	patch, err := jsonpatch.DecodePatch(body)
+	if err != nil {
+		t.formatter.Respond(nil, err, w, r)
+	}
+
+	currentRecord, err := t.service.GetTodo(id)
+	if err != nil {
+		t.formatter.Respond(nil, err, w, r)
+	}
+
+	currentBytes, err := json.Marshal(currentRecord)
+	if err != nil {
+		t.formatter.Respond(nil, err, w, r)
+	}
+
+	modifiedBytes, err := patch.Apply(currentBytes)
+	if err != nil {
+		t.formatter.Respond(nil, err, w, r)
+	}
+
+	var modified types.Todo
+	err = json.Unmarshal(modifiedBytes, &modified)
+	if err != nil {
+		t.formatter.Respond(nil, err, w, r)
+	}
+
+	if modified.Id != currentRecord.Id {
+		t.formatter.Respond(nil, errors.New("bad request: id can't be changed"), w, r)
+	}
+
+	err = t.service.UpdateTodo(modified)
+	if err != nil {
+		t.formatter.Respond(nil, err, w, r)
+	} else {
+		render.NoContent(w, r)
 	}
 }
