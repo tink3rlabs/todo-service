@@ -106,6 +106,11 @@ func (s *SQLAdapter) Get(dest any, itemKey string, itemValue string) error {
 	return result.Error
 }
 
+func (s *SQLAdapter) Update(item any, itemKey string, itemValue string) error {
+	result := s.DB.Where(itemKey+" = ?", itemValue).Save(item)
+	return result.Error
+}
+
 func (s *SQLAdapter) Delete(item any, itemKey string, itemValue string) error {
 	result := s.DB.Where(itemKey+" = ?", itemValue).Delete(item)
 	return result.Error
