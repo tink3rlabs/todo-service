@@ -55,7 +55,7 @@ func (e *ErrorHandler) Wrap(handler func(w http.ResponseWriter, r *http.Request)
 			render.Status(r, http.StatusInternalServerError)
 			response := types.ErrorResponse{
 				Status: http.StatusText(http.StatusInternalServerError),
-				Error:  "Encountered an unexpected server error: " + err.Error(),
+				Error:  "encountered an unexpected server error: " + err.Error(),
 			}
 			render.JSON(w, r, response)
 			return

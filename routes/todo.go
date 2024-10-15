@@ -17,9 +17,8 @@ import (
 )
 
 type TodoRouter struct {
-	Router    *chi.Mux
-	service   *todo.TodoService
-	validator middlewares.Validator
+	Router  *chi.Mux
+	service *todo.TodoService
 }
 
 // Define the JSON schemas as a map where the ctx(body, params and query) is the key and schema is the value
@@ -92,13 +91,16 @@ var idSchema = map[string]string{
 func NewTodoRouter() *TodoRouter {
 	t := TodoRouter{}
 	h := middlewares.ErrorHandler{}
+	v := middlewares.Validator{}
+
 	router := chi.NewRouter()
-	router.Get("/{id}", t.validator.ValidateRequest(idSchema, h.Wrap(t.GetTodo)))
-	router.Delete("/{id}", t.validator.ValidateRequest(idSchema, h.Wrap(t.DeleteTodo)))
-	router.Put("/{id}", t.validator.ValidateRequest(replaceSchema, h.Wrap(t.ReplaceTodo)))
-	router.Patch("/{id}", t.validator.ValidateRequest(idSchema, h.Wrap(t.UpdateTodo)))
-	router.Post("/", t.validator.ValidateRequest(createSchema, h.Wrap(t.CreateTodo)))
+	router.Get("/{id}", v.ValidateRequest(idSchema, h.Wrap(t.GetTodo)))
+	router.Delete("/{id}", v.ValidateRequest(idSchema, h.Wrap(t.DeleteTodo)))
+	router.Put("/{id}", v.ValidateRequest(replaceSchema, h.Wrap(t.ReplaceTodo)))
+	router.Patch("/{id}", v.ValidateRequest(idSchema, h.Wrap(t.UpdateTodo)))
+	router.Post("/", v.ValidateRequest(createSchema, h.Wrap(t.CreateTodo)))
 	router.Get("/", h.Wrap(t.ListTodos))
+
 	t.Router = router
 	t.service = todo.NewTodoService()
 
@@ -135,6 +137,8 @@ func NewTodoRouter() *TodoRouter {
 //	          application/json:
 //	            schema:
 //	              $ref: '#/components/schemas/TodoList'
+//	      '500':
+//	         $ref: '#/components/responses/ServerError'
 func (t *TodoRouter) ListTodos(w http.ResponseWriter, r *http.Request) error {
 	cursor := r.URL.Query().Get("next")
 
@@ -177,6 +181,8 @@ func (t *TodoRouter) ListTodos(w http.ResponseWriter, r *http.Request) error {
 //	              $ref: '#/components/schemas/Todo'
 //	      '404':
 //	         $ref: '#/components/responses/NotFound'
+//	      '500':
+//	         $ref: '#/components/responses/ServerError'
 func (t *TodoRouter) GetTodo(w http.ResponseWriter, r *http.Request) error {
 	id := chi.URLParam(r, "id")
 	todo, err := t.service.GetTodo(id)
@@ -207,6 +213,8 @@ func (t *TodoRouter) GetTodo(w http.ResponseWriter, r *http.Request) error {
 //	    responses:
 //	      '204':
 //	        description: successful operation
+//	      '500':
+//	         $ref: '#/components/responses/ServerError'
 func (t *TodoRouter) DeleteTodo(w http.ResponseWriter, r *http.Request) error {
 	id := chi.URLParam(r, "id")
 	err := t.service.DeleteTodo(id)
@@ -236,6 +244,10 @@ func (t *TodoRouter) DeleteTodo(w http.ResponseWriter, r *http.Request) error {
 //	    responses:
 //	      '201':
 //	        description: successful operation
+//	      '400':
+//	         $ref: '#/components/responses/BadRequest'
+//	      '500':
+//	         $ref: '#/components/responses/ServerError'
 func (t *TodoRouter) CreateTodo(w http.ResponseWriter, r *http.Request) error {
 	var todoToCreate types.TodoUpdate
 
@@ -280,8 +292,12 @@ func (t *TodoRouter) CreateTodo(w http.ResponseWriter, r *http.Request) error {
 //	    responses:
 //	      '204':
 //	        description: successful operation
-//	      '404':
+//	      '400':
 //	         $ref: '#/components/responses/NotFound'
+//	      '404':
+//	         $ref: '#/components/responses/BadRequest'
+//	      '500':
+//	         $ref: '#/components/responses/ServerError'
 func (t *TodoRouter) ReplaceTodo(w http.ResponseWriter, r *http.Request) error {
 	id := chi.URLParam(r, "id")
 	var todoToUpdate types.TodoUpdate
@@ -338,8 +354,12 @@ func (t *TodoRouter) ReplaceTodo(w http.ResponseWriter, r *http.Request) error {
 //	    responses:
 //	      '204':
 //	        description: successful operation
-//	      '404':
+//	      '400':
 //	         $ref: '#/components/responses/NotFound'
+//	      '404':
+//	         $ref: '#/components/responses/BadRequest'
+//	      '500':
+//	         $ref: '#/components/responses/ServerError'
 func (t *TodoRouter) UpdateTodo(w http.ResponseWriter, r *http.Request) error {
 	id := chi.URLParam(r, "id")
 
@@ -350,7 +370,7 @@ func (t *TodoRouter) UpdateTodo(w http.ResponseWriter, r *http.Request) error {
 
 	patch, err := jsonpatch.DecodePatch(body)
 	if err != nil {
-		return err
+		return &errors.BadRequest{Message: err.Error()}
 	}
 
 	currentRecord, err := t.service.GetTodo(id)
@@ -365,7 +385,7 @@ func (t *TodoRouter) UpdateTodo(w http.ResponseWriter, r *http.Request) error {
 
 	modifiedBytes, err := patch.Apply(currentBytes)
 	if err != nil {
-		return err
+		return &errors.BadRequest{Message: err.Error()}
 	}
 
 	var modified types.Todo

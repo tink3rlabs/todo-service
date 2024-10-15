@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"todo-service/internal/types"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
@@ -18,12 +19,6 @@ type Validator struct{}
 // ValidationResult holds the result of the gojsonschema validator
 type ValidationResult struct {
 	Result bool     `json:"result"`
-	Error  []string `json:"error"`
-}
-
-// ValidationError holds the error format for ValidateRequest Middleware
-type ValidationError struct {
-	Status string   `json:"status"`
 	Error  []string `json:"error"`
 }
 
@@ -110,20 +105,21 @@ func (f *Validator) ValidateRequest(schemas map[string]string, next http.Handler
 
 			// If the gojsonschema validator function has some internal error
 			if err != nil {
-				validationError := ValidationError{
-					Status: "SERVER_ERROR",
-					Error:  []string{"Encountered an unexpected server error: " + err.Error()},
+				serverError := types.ErrorResponse{
+					Status: http.StatusText(http.StatusInternalServerError),
+					Error:  "encountered an unexpected server error: " + err.Error(),
 				}
-				render.Status(r, http.StatusBadRequest)
-				render.JSON(w, r, validationError)
+				render.Status(r, http.StatusInternalServerError)
+				render.JSON(w, r, serverError)
 				return
 			}
 		}
 
 		if len(allErrors) > 0 {
-			validationError := ValidationError{
-				Status: "BAD_REQUEST",
-				Error:  allErrors,
+			validationError := types.ErrorResponse{
+				Status:  http.StatusText(http.StatusBadRequest),
+				Error:   "request validation faild",
+				Details: allErrors,
 			}
 			render.Status(r, http.StatusBadRequest)
 			render.JSON(w, r, validationError)

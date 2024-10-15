@@ -8,7 +8,7 @@ import (
 )
 
 var ConfigFs embed.FS
-var ErrNotFound = errors.New("not found")
+var ErrNotFound = errors.New("the requested resources was not found")
 
 type StorageAdapter interface {
 	Execute(statement string) error
