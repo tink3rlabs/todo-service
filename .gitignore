@@ -119,3 +119,6 @@ $RECYCLE.BIN/
 
 # Application specific
 todo.sqlite
+config/openapi.json
+todo-service
+config/development*.yaml
