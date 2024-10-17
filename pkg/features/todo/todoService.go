@@ -5,9 +5,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"todo-service/internal/logger"
-	"todo-service/internal/storage"
-	"todo-service/types"
+	"todo-service/pkg/types"
+
+	"github.com/tink3rlabs/magic/logger"
+	"github.com/tink3rlabs/magic/storage"
 )
 
 type TodoService struct {

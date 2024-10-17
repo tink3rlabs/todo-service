@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"embed"
 	"fmt"
 	"os"
 	"strings"
@@ -9,9 +10,10 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"todo-service/internal/logger"
+	"github.com/tink3rlabs/magic/logger"
 )
 
+var ConfigFS embed.FS
 var cfgFile string
 var rootCmd = &cobra.Command{
 	Use:   "",

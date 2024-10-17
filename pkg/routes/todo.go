@@ -10,10 +10,11 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
 
-	"todo-service/features/todo"
-	"todo-service/internal/errors"
-	"todo-service/internal/middlewares"
-	"todo-service/types"
+	"todo-service/pkg/features/todo"
+	"todo-service/pkg/types"
+
+	"github.com/tink3rlabs/magic/errors"
+	"github.com/tink3rlabs/magic/middlewares"
 )
 
 type TodoRouter struct {

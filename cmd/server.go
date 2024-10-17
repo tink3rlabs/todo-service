@@ -1,14 +1,12 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"math/rand/v2"
 	"net/http"
 	"time"
 
-	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
@@ -16,15 +14,14 @@ import (
 	"github.com/go-co-op/gocron/v2"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	openapigodoc "github.com/tink3rlabs/openapi-godoc"
+	"github.com/tink3rlabs/magic/errors"
+	"github.com/tink3rlabs/magic/health"
+	"github.com/tink3rlabs/magic/leadership"
+	"github.com/tink3rlabs/magic/logger"
+	"github.com/tink3rlabs/magic/middlewares"
+	"github.com/tink3rlabs/magic/storage"
 
-	"todo-service/internal/errors"
-	"todo-service/internal/health"
-	"todo-service/internal/leadership"
-	"todo-service/internal/logger"
-	"todo-service/internal/middlewares"
-	"todo-service/internal/storage"
-	"todo-service/routes"
+	"todo-service/pkg/routes"
 )
 
 var serverCommand = &cobra.Command{
@@ -62,64 +59,6 @@ func initRoutes() *chi.Mux {
 	return router
 }
 
-func generateOpenApiSpec() []byte {
-	securitySchemasData := []byte(`
-	{
-		"petstore_auth": {
-			"type": "oauth2",
-			"flows": {
-				"implicit": {
-					"authorizationUrl": "https://petstore3.swagger.io/oauth/authorize",
-					"scopes": {
-						"write:pets": "modify pets in your account",
-						"read:pets": "read your pets"
-					}
-				}
-			}
-		},
-		"api_key": {
-			"type": "apiKey",
-			"name": "api_key",
-			"in": "header"
-		}
-	}`)
-
-	var securitySchemas map[string]interface{}
-	err := json.Unmarshal(securitySchemasData, &securitySchemas)
-	if err != nil {
-		logger.Fatal("Logging err", slog.Any("error", err.Error())) // panic if there is an error
-	}
-
-	apiDefinition := openapigodoc.OpenAPIDefinition{
-		OpenAPI: "3.0.3",
-		Info: openapigodoc.Info{
-			Title:       "Todo API",
-			Version:     "1.0.0",
-			Description: "Simple example Todo API",
-			Contact:     &openapi3.Contact{Email: "developer@example.com"},
-			License:     &openapi3.License{Name: "Apache 2.0", URL: "http://www.apache.org/licenses/LICENSE-2.0.html"},
-		},
-		Servers: []openapigodoc.Server{{URL: viper.GetString("service.url")}},
-		Tags: []openapigodoc.Tag{
-			{
-				Name:         "todos",
-				Description:  "Manage Todo items",
-				ExternalDocs: &openapi3.ExternalDocs{URL: "http://example.com", Description: "Find out more"},
-			},
-		},
-		ExternalDocs: openapigodoc.ExternalDocs{Description: "Find out more", URL: "http://example.com"},
-		Components: openapigodoc.Components{
-			SecuritySchemes: securitySchemas,
-		},
-	}
-
-	definition, err := openapigodoc.GenerateOpenApiDoc(apiDefinition, true)
-	if err != nil {
-		logger.Fatal("Logging err", slog.Any("error", err.Error()))
-	}
-	return definition
-}
-
 func createScheduler() {
 	slog.Info("strating scheduler")
 	// create a scheduler
@@ -146,6 +85,12 @@ func createScheduler() {
 }
 
 func runServer(cmd *cobra.Command, args []string) error {
+	openApiSpec, err := ConfigFS.ReadFile("config/openapi.json")
+
+	if err != nil {
+		return fmt.Errorf("failed to load OpenAPI definition, did you forget to run go generate?: %v", err)
+	}
+
 	// Random sleep between 0 to 30 seconds to handle multiple instances starting at the same time
 	sleep := rand.IntN(30)
 	slog.Info("Sleeping to handle multiple instances starting at the same time", slog.Int("sleep_duration_sec", sleep))
@@ -165,7 +110,6 @@ func runServer(cmd *cobra.Command, args []string) error {
 
 	router := initRoutes()
 
-	openApiSpec := generateOpenApiSpec()
 	router.Get("/api-docs", func(w http.ResponseWriter, r *http.Request) {
 		if _, responseFailed := w.Write(openApiSpec); responseFailed != nil {
 			slog.Error("failed responding to /api-docs:", slog.Any("error", responseFailed))
