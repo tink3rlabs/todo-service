@@ -13,37 +13,52 @@ The file devcontainer.json file has more relevant pointers and the json file can
 
 When the container is running one can see the Dev Container: Go @ xxxx in the bottom left hand corner of Visual Studio Code. One can see more details about the container in Docker Desktop or Orbstack https://orbstack.dev/ which is a newer alternative to Docker Desktop.
 
-## Code organization
+## Building and running
+ ```bash
+ go generate
+```
+ ```bash
+ go install
+```
+ ```bash
+ go build
+```
+ ```bash
+ ./todo-service --config ./config/development.yaml server
+```
 
-This section goes through the code organization of todo microservice.
-
-Each target in the Makefile helps automate a specific development task,streamlining the workflow for building, testing, and analyzing the Go application.
-
-main.go is the entry point to the micro-service.
-
-### cmd package
-The cmd package files are in the cmd folder. This uses cobra and viper packages to handle initialization and configuration info. The runServer cmd sets up the API routes for the service and checks the api-docs, health/liveness and health/readiness endpoints. 
-
-
-### todo package in features folder
-The features specific to a microservice are to be implemented in the todo package. The code is in the features folder in todo package
-
-### routes package
-Routes package has sample implementations for get, delete and post routes. 
-
-### types package
-This package has ErrorResponse and ToDo schema used elsewhere in the microservice
-
-### health package
-This is in the internal/health folder. Implements healthchecker for the microservice
-
-### leadership package
-This is in the internal/leadership folder. Implements leader election from a list of cluster members and has the related helper functions.
-
-### middlewares package
-This is in the internal/middlewares folder. This validates the json schema and calls the next handler in the http chain to process the request further.
-
-### storage package
-This is in the internal/storage folder. This provides different storage adapters such as "memory" and "sql"
+## Testing with curl
+ ```bash
+ curl -X POST "http://localhost:8080/todos" \           
+     -H "accept: application/json" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "summary": "New Todo item",
+       "done": false
+     }'
+```
+```bash
+ curl -v http://localhost:8080/todos
+```
+```bash
+curl -X PATCH "http://localhost:8080/todos/0192fa03-b02a-78af-a4e2-255326f5d891" \          
+     -H "accept: application/json" \                 
+     -H "Content-Type: application/json-patch+json" \
+     -d '[
+       {                 
+         "op": "replace",   
+         "path": "/summary",                    
+         "value": "An updated TODO item summary"
+       },
+       {                 
+         "op": "replace",
+         "path": "/done",
+         "value": true
+       }
+     ]'
+```
+```bash
+curl -X DELETE "http://localhost:8080/todos/0192fa08-a84c-7d83-87aa-7c31ec29aacf" -H "accept: application/json"
+```
 
 
