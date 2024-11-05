@@ -17,12 +17,15 @@ When the container is running one can see the Dev Container: Go @ xxxx in the bo
  ```bash
  go generate
 ```
+
  ```bash
  go install
 ```
+
  ```bash
  go build
 ```
+
  ```bash
  ./todo-service --config ./config/development.yaml server
 ```
@@ -37,9 +40,11 @@ When the container is running one can see the Dev Container: Go @ xxxx in the bo
        "done": false
      }'
 ```
+
 ```bash
  curl -v http://localhost:8080/todos
 ```
+
 ```bash
 curl -X PATCH "http://localhost:8080/todos/0192fa03-b02a-78af-a4e2-255326f5d891" \          
      -H "accept: application/json" \                 
@@ -57,6 +62,7 @@ curl -X PATCH "http://localhost:8080/todos/0192fa03-b02a-78af-a4e2-255326f5d891"
        }
      ]'
 ```
+
 ```bash
 curl -X DELETE "http://localhost:8080/todos/0192fa08-a84c-7d83-87aa-7c31ec29aacf" -H "accept: application/json"
 ```
