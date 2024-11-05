@@ -5,26 +5,25 @@ service:
 storage:
   # supported types are memory, sql and dynamodb
   type: memory
-  # provider: postgresql
   # config:
+  #   provider: postgresql
   #   host: host.docker.internal
   #   port: 5432
   #   user: todo
   #   password: todo
   #   dbname: todo
   #   schema: todo
-  # provider: mysql
   # config:
+  #   provider: mysql
   #   host: host.docker.internal
   #   port: 3306
   #   user: todo
   #   password: todo
   #   dbname: todo
   #   schema: todo
-  # provider: sqlite
   # config:
+  #   provider: sqlite
   #   path: todo.sqlite
-  # provider: dynamodb
   # config:
   #   region: us-west-2
   #   endpoint: "http://host.docker.internal:8000"

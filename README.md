@@ -1,24 +1,30 @@
 # TODO Service
 TODO Service provides a framework for building a microservice in go-lang. 
 
-## Source code editing
-Please install visual studio code and the go language. The version used can be seen in the go.mod file. Also consider installing "Rich Go language support for Visual Studio Code" by the go team at Google. It provides several nifty features
-https://marketplace.visualstudio.com/items?itemName=golang.Go
+## Developing
 
+There are two ways you can develope
 
-## Running in a container
-To run the service in a container, please install Visual Studio Code. Setup and configuration of visual studio devcontainers is discussed in detail below
-https://code.visualstudio.com/docs/devcontainers/containers
-The file devcontainer.json file has more relevant pointers and the json file can be viewed through Visual Studio Code.
+### Using a devcontainer
 
-When the container is running one can see the Dev Container: Go @ xxxx in the bottom left hand corner of Visual Studio Code. One can see more details about the container in Docker Desktop or Orbstack https://orbstack.dev/ which is a newer alternative to Docker Desktop.
+Using [devcontainers](https://containers.dev/) is the recommended approach as it ensures your development machine stays clean as well as provides consistency between different developers reducing the "works on my machine" problem.
+
+To develope in a dev container follow these steps:
+
+1. Install [Docker](https://www.docker.com/) and [VSCode](https://code.visualstudio.com/)
+2. Install the [Dev Containers VSCode extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
+3. Open the code base in vscode
+4. You will be prompted to reopen the project in a dev container, follow the instructions
+
+### Using the traditional approach
+
+Install the [go language ](https://go.dev/) and your favorite IDE, then start developing using whichever method works best for you.
+
+if you use Visual studio code, consider installing [Rich Go language support for Visual Studio Code](https://marketplace.visualstudio.com/items?itemName=golang.Go) by the go team at Google. It provides several nifty features.
 
 ## Building and running
  ```bash
  go generate
-```
- ```bash
- go install
 ```
  ```bash
  go build
@@ -28,35 +34,73 @@ When the container is running one can see the Dev Container: Go @ xxxx in the bo
 ```
 
 ## Testing with curl
+
+### Creating a new TODO item
+
  ```bash
- curl -X POST "http://localhost:8080/todos" \           
-     -H "accept: application/json" \
-     -H "Content-Type: application/json" \
-     -d '{
-       "summary": "New Todo item",
-       "done": false
-     }'
+curl -X POST "http://localhost:8080/todos" \
+    -H "accept: application/json" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "summary": "New Todo item",
+      "done": false
+    }'
 ```
+
+### Listing TODO items
+
 ```bash
- curl -v http://localhost:8080/todos
+curl http://localhost:8080/todos
 ```
+
+### Getting a single TODO items
+
+You can get the ID of the TODO item from either the response to the Create TODO API call, or the response to the List TODO API call
+
 ```bash
-curl -X PATCH "http://localhost:8080/todos/0192fa03-b02a-78af-a4e2-255326f5d891" \          
-     -H "accept: application/json" \                 
-     -H "Content-Type: application/json-patch+json" \
+curl http://localhost:8080/todos/${TODO_ID}
+```
+
+### Updating a todo item (replace mode)
+
+This method replaces all values of the TODO item with the specified ID with the ones provided in the request body.
+
+You can get the ID of the TODO item from either the response to the Create TODO API call, or the response to the List TODO API call
+
+```bash
+curl -X PUT http://localhost:8080/${TODO_ID} \
+  -H 'Content-Type: application/json' \
+  -d '{"summary": "replaced", "done": true}'
+```
+
+### Updating a todo item (patch mode)
+
+This method folows the [JSONPatch](https://jsonpatch.com/) format to update specific values of the todo with the specified ID with the ones provided in the request body.
+
+You can get the ID of the TODO item from either the response to the Create TODO API call, or the response to the List TODO API call
+
+```bash
+curl -X PATCH http://localhost:8080/todos/${TODO_ID} \
+     -H 'accept: application/json' \
+     -H 'Content-Type: application/json-patch+json' \
      -d '[
-       {                 
-         "op": "replace",   
-         "path": "/summary",                    
-         "value": "An updated TODO item summary"
+       {
+         "op": "replace",
+         "path": "/summary",
+         "value": "patched"
        },
-       {                 
+       {
          "op": "replace",
          "path": "/done",
          "value": true
        }
      ]'
 ```
+
+### Deleting a single TODO items
+
+You can get the ID of the TODO item from either the response to the Create TODO API call, or the response to the List TODO API call
+
 ```bash
-curl -X DELETE "http://localhost:8080/todos/0192fa08-a84c-7d83-87aa-7c31ec29aacf" -H "accept: application/json"
+curl -X DELETE http://localhost:8080/todos/${TODO_ID}
 ```

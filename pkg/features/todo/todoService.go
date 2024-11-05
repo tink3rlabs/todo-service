@@ -4,6 +4,7 @@ import (
 	"log/slog"
 
 	"github.com/google/uuid"
+	"github.com/spf13/viper"
 
 	"todo-service/pkg/types"
 
@@ -16,8 +17,11 @@ type TodoService struct {
 }
 
 func NewTodoService() *TodoService {
-	s := storage.StorageAdapterFactory{}
-	storageAdapter, err := s.GetInstance(storage.DEFAULT)
+	storageAdapter, err := storage.StorageAdapterFactory{}.GetInstance(
+		storage.StorageAdapterType(viper.GetString("storage.type")),
+		viper.GetStringMapString("storage.config"),
+	)
+
 	if err != nil {
 		logger.Fatal("failed to create TodoService instance", slog.Any("error", err.Error()))
 	}
@@ -27,23 +31,23 @@ func NewTodoService() *TodoService {
 
 func (t *TodoService) ListTodos(limit int, cursor string) ([]types.Todo, string, error) {
 	todos := []types.Todo{}
-	next, err := t.storage.List(&todos, "Id", limit, cursor)
+	next, err := t.storage.List(&todos, "Id", map[string]any{}, limit, cursor)
 
 	return todos, next, err
 }
 
 func (t *TodoService) GetTodo(id string) (types.Todo, error) {
 	todo := types.Todo{}
-	err := t.storage.Get(&todo, "Id", id)
+	err := t.storage.Get(&todo, map[string]any{"id": id})
 	return todo, err
 }
 
 func (t *TodoService) DeleteTodo(id string) error {
-	return t.storage.Delete(&types.Todo{}, "Id", id)
+	return t.storage.Delete(&types.Todo{}, map[string]any{"id": id})
 }
 
 func (t *TodoService) UpdateTodo(todoToUpdate types.Todo) error {
-	return t.storage.Update(todoToUpdate, "Id", todoToUpdate.Id)
+	return t.storage.Update(todoToUpdate, map[string]any{"id": todoToUpdate.Id})
 }
 
 func (t *TodoService) CreateTodo(todoToCreate types.TodoUpdate) (types.Todo, error) {

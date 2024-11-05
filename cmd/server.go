@@ -96,8 +96,27 @@ func runServer(cmd *cobra.Command, args []string) error {
 	slog.Info("Sleeping to handle multiple instances starting at the same time", slog.Int("sleep_duration_sec", sleep))
 	time.Sleep(time.Duration(sleep) * time.Second)
 
-	storage.NewDatabaseMigration().Migrate()
-	election := leadership.NewLeaderElection()
+	storageAdapter, err := storage.StorageAdapterFactory{}.GetInstance(
+		storage.StorageAdapterType(viper.GetString("storage.type")),
+		viper.GetStringMapString("storage.config"),
+	)
+
+	if err != nil {
+		panic("failed to get storage adapter instance")
+	}
+
+	storage.NewDatabaseMigration(storageAdapter).Migrate()
+
+	electionProps := leadership.LeaderElectionProps{
+		HeartbeatInterval: viper.GetDuration("leadership.heartbeat"),
+		StorageAdapter:    storageAdapter,
+		AdditionalProps: map[string]any{
+			"global": viper.GetBool("storage.config.global"),
+			"region": viper.GetString("storage.config.region"),
+			"regios": viper.GetStringSlice("storage.config.regions"),
+		},
+	}
+	election := leadership.NewLeaderElection(electionProps)
 	election.Start()
 
 	go func() {
@@ -123,7 +142,7 @@ func runServer(cmd *cobra.Command, args []string) error {
 	})
 
 	//health check - readiness
-	healthChecker := health.NewHealthChecker()
+	healthChecker := health.NewHealthChecker(storageAdapter)
 	h := middlewares.ErrorHandler{}
 	router.Get("/health/readiness", h.Wrap(func(w http.ResponseWriter, r *http.Request) error {
 		err := healthChecker.Check(viper.GetBool("health.storage"), viper.GetStringSlice("health.dependencies"))
