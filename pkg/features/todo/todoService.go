@@ -10,10 +10,18 @@ import (
 
 	"github.com/tink3rlabs/magic/logger"
 	"github.com/tink3rlabs/magic/storage"
+	"github.com/tink3rlabs/magic/telemetry"
 )
 
 type TodoService struct {
 	storage storage.StorageAdapter
+	created telemetry.Counter
+}
+
+// WithCreatedCounter attaches a metrics counter incremented on each successful create.
+func (t *TodoService) WithCreatedCounter(c telemetry.Counter) *TodoService {
+	t.created = c
+	return t
 }
 
 func NewTodoService() *TodoService {
@@ -86,5 +94,13 @@ func (t *TodoService) CreateTodo(todoToCreate types.TodoUpdate) (types.Todo, err
 	todo.Done = todoToCreate.Done
 
 	err = t.storage.Create(todo)
-	return todo, err
+	if err != nil {
+		return todo, err
+	}
+
+	if t.created != nil {
+		t.created.Add(1)
+	}
+
+	return todo, nil
 }

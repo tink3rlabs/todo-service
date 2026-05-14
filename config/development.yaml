@@ -46,3 +46,9 @@ health:
 logger:
   level: info
   json: false
+observability:
+  service_name: todo-service
+  # metrics_mode: prometheus | otlp
+  metrics_mode: prometheus
+  enable_tracing: false
+  # traces_otlp_endpoint: otel-collector:4317

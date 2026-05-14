@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -18,7 +19,9 @@ import (
 	"github.com/tink3rlabs/magic/leadership"
 	"github.com/tink3rlabs/magic/logger"
 	"github.com/tink3rlabs/magic/middlewares"
+	"github.com/tink3rlabs/magic/observability"
 	"github.com/tink3rlabs/magic/storage"
+	"github.com/tink3rlabs/magic/telemetry"
 
 	"todo-service/pkg/routes"
 )
@@ -33,13 +36,16 @@ func init() {
 	serverCommand.Flags().StringP("port", "p", "8080", "The port on which the Todo server will listen on")
 }
 
-func initRoutes() *chi.Mux {
+func initRoutes(obs *observability.Observer, todosCreated telemetry.Counter) *chi.Mux {
 	router := chi.NewRouter()
 	router.Use(
 		render.SetContentType(render.ContentTypeJSON), // Set content-Type headers as application/json
 		middleware.Logger,          // Log API request calls
 		middleware.RedirectSlashes, // Redirect slashes to no slash URL versions
 		middleware.Recoverer,       // Recover from panics without crashing server
+		middlewares.ObservabilityWithOptions(obs, middlewares.ObservabilityOptions{
+			SkipPathPrefixes: []string{"/health/"},
+		}),
 		cors.Handler(cors.Options{
 			AllowedOrigins:   []string{"https://*", "http://*"},
 			AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
@@ -50,7 +56,7 @@ func initRoutes() *chi.Mux {
 		}),
 	)
 
-	t := routes.NewTodoRouter()
+	t := routes.NewTodoRouter(todosCreated)
 	router.Route("/", func(r chi.Router) {
 		r.Mount("/todos", t.Router)
 	})
@@ -90,6 +96,36 @@ func runServer(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load OpenAPI definition, did you forget to run go generate?: %v", err)
 	}
 
+	obsCfg := observability.DefaultConfig()
+	obsCfg.ServiceName = viper.GetString("observability.service_name")
+	if obsCfg.ServiceName == "" {
+		obsCfg.ServiceName = "todo-service"
+	}
+	switch viper.GetString("observability.metrics_mode") {
+	case "otlp":
+		obsCfg.MetricsMode = observability.MetricsModeOTLP
+		obsCfg.MetricsOTLPEndpoint = viper.GetString("observability.metrics_otlp_endpoint")
+	default:
+		obsCfg.MetricsMode = observability.MetricsModePrometheus
+	}
+	obsCfg.EnableTracing = viper.GetBool("observability.enable_tracing")
+	obsCfg.TracesOTLPEndpoint = viper.GetString("observability.traces_otlp_endpoint")
+
+	obs, err := observability.Init(context.Background(), obsCfg)
+	if err != nil {
+		logger.Fatal("failed to initialise observability", slog.Any("error", err.Error()))
+	}
+	defer obs.Shutdown(context.Background())
+
+	todosCreated, err := obs.Counter(telemetry.MetricDefinition{
+		Name: "todo_service_todos_created_total",
+		Help: "Total number of todo items created.",
+		Kind: telemetry.KindCounter,
+	})
+	if err != nil {
+		logger.Fatal("failed to register todos_created counter", slog.Any("error", err.Error()))
+	}
+
 	storageAdapter, err := storage.StorageAdapterFactory{}.GetInstance(
 		storage.StorageAdapterType(viper.GetString("storage.type")),
 		viper.GetStringMapString("storage.config"),
@@ -121,7 +157,9 @@ func runServer(cmd *cobra.Command, args []string) error {
 		}
 	}()
 
-	router := initRoutes()
+	router := initRoutes(obs, todosCreated)
+
+	router.Handle("/metrics", obs.MetricsHandler())
 
 	router.Get("/api-docs", func(w http.ResponseWriter, r *http.Request) {
 		if _, responseFailed := w.Write(openApiSpec); responseFailed != nil {

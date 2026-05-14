@@ -15,6 +15,7 @@ import (
 
 	"github.com/tink3rlabs/magic/errors"
 	"github.com/tink3rlabs/magic/middlewares"
+	"github.com/tink3rlabs/magic/telemetry"
 )
 
 type TodoRouter struct {
@@ -63,7 +64,7 @@ var idSchema = map[string]string{
 	}`,
 }
 
-func NewTodoRouter() *TodoRouter {
+func NewTodoRouter(created telemetry.Counter) *TodoRouter {
 	t := TodoRouter{}
 	h := middlewares.ErrorHandler{}
 	v := middlewares.Validator{}
@@ -77,7 +78,7 @@ func NewTodoRouter() *TodoRouter {
 	router.Get("/", h.Wrap(t.ListTodos))
 
 	t.Router = router
-	t.service = todo.NewTodoService()
+	t.service = todo.NewTodoService().WithCreatedCounter(created)
 
 	return &t
 }
