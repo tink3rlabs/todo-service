@@ -22,32 +22,6 @@ type TodoRouter struct {
 	service *todo.TodoService
 }
 
-// Define the JSON schemas as a map where the ctx(body, params and query) is the key and schema is the value
-// Example: If you gave a request where you need to validate body, params and query
-// var schema = map[string]string{
-// 	"body": `{
-// 		"type": "object",
-// 		"properties": {
-// 			"summary": { "type": "string" }
-// 		},
-// 		"required": ["summary"]
-// 	}`,
-// 	"params": `{
-// 		"type": "object",
-// 		"properties": {
-// 			"id": { "type": "string" }
-// 		},
-// 		"required": ["id"]
-// 	}`,
-// 	"query": `{
-// 		"type": "object",
-// 		"properties": {
-// 			"app": { "type": "string" }
-// 		},
-// 		"required": ["app"]
-// 	}`,
-// }
-
 var createSchema = map[string]string{
 	"body": `{
 		"type": "object",

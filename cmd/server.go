@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"log/slog"
-	"math/rand/v2"
 	"net/http"
 	"time"
 
@@ -90,11 +89,6 @@ func runServer(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to load OpenAPI definition, did you forget to run go generate?: %v", err)
 	}
-
-	// Random sleep between 0 to 30 seconds to handle multiple instances starting at the same time
-	sleep := rand.IntN(30)
-	slog.Info("Sleeping to handle multiple instances starting at the same time", slog.Int("sleep_duration_sec", sleep))
-	time.Sleep(time.Duration(sleep) * time.Second)
 
 	storageAdapter, err := storage.StorageAdapterFactory{}.GetInstance(
 		storage.StorageAdapterType(viper.GetString("storage.type")),
