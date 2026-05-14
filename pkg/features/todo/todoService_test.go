@@ -18,6 +18,7 @@ func newMemoryService(t *testing.T) *TodoService {
 	// cmd/server.go runs storage.NewDatabaseMigration(...).Migrate() to create
 	// the schema; here we apply the same todos table DDL so the test exercises
 	// the real adapter against a real table.
+	// Keep this DDL in sync with config/migrations/sqlite/01__base.yaml
 	if err := s.storage.Execute(`CREATE TABLE IF NOT EXISTS todos (
 		id TEXT PRIMARY KEY,
 		summary TEXT,

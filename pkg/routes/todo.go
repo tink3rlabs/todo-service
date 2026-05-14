@@ -107,7 +107,7 @@ func NewTodoRouter() *TodoRouter {
 //	          type: string
 //	      - name: filter
 //	        in: query
-//	        description: A Lucene query string to filter todos (e.g. done:true)
+//	        description: A Lucene query string to filter todos (e.g. done:1)
 //	        required: false
 //	        schema:
 //	          type: string
