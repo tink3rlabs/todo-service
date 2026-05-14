@@ -311,9 +311,9 @@ func (t *TodoRouter) CreateTodo(w http.ResponseWriter, r *http.Request) error {
 //	      '204':
 //	        description: successful operation
 //	      '400':
-//	         $ref: '#/components/responses/NotFound'
-//	      '404':
 //	         $ref: '#/components/responses/BadRequest'
+//	      '404':
+//	         $ref: '#/components/responses/NotFound'
 //	      '500':
 //	         $ref: '#/components/responses/ServerError'
 func (t *TodoRouter) ReplaceTodo(w http.ResponseWriter, r *http.Request) error {
@@ -373,9 +373,9 @@ func (t *TodoRouter) ReplaceTodo(w http.ResponseWriter, r *http.Request) error {
 //	      '204':
 //	        description: successful operation
 //	      '400':
-//	         $ref: '#/components/responses/NotFound'
-//	      '404':
 //	         $ref: '#/components/responses/BadRequest'
+//	      '404':
+//	         $ref: '#/components/responses/NotFound'
 //	      '500':
 //	         $ref: '#/components/responses/ServerError'
 func (t *TodoRouter) UpdateTodo(w http.ResponseWriter, r *http.Request) error {
