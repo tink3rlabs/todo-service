@@ -31,7 +31,7 @@ func NewTodoService() *TodoService {
 
 func (t *TodoService) ListTodos(limit int, cursor string) ([]types.Todo, string, error) {
 	todos := []types.Todo{}
-	next, err := t.storage.List(&todos, "Id", map[string]any{}, limit, cursor)
+	next, err := t.storage.List(&todos, "id", map[string]any{}, limit, cursor)
 
 	return todos, next, err
 }
