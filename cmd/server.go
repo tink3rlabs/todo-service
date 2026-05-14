@@ -123,7 +123,7 @@ func runServer(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		logger.Fatal("failed to initialise observability", slog.String("error", err.Error()))
 	}
-	defer obs.Shutdown(context.Background())
+	defer func() { _ = obs.Shutdown(context.Background()) }()
 
 	todosCreated, err := obs.Counter(telemetry.MetricDefinition{
 		Name: "todo_service_todos_created_total",
