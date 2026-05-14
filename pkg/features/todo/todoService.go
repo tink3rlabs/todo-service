@@ -1,6 +1,7 @@
 package todo
 
 import (
+	"encoding/json"
 	"log/slog"
 
 	"github.com/google/uuid"
@@ -9,13 +10,23 @@ import (
 	"todo-service/pkg/types"
 
 	"github.com/tink3rlabs/magic/logger"
+	"github.com/tink3rlabs/magic/pubsub"
 	"github.com/tink3rlabs/magic/storage"
 	"github.com/tink3rlabs/magic/telemetry"
 )
 
 type TodoService struct {
-	storage storage.StorageAdapter
-	created telemetry.Counter
+	storage   storage.StorageAdapter
+	created   telemetry.Counter
+	publisher pubsub.Publisher
+	topic     string
+}
+
+// WithPublisher attaches a pub/sub publisher; todo lifecycle events are published to topic.
+func (t *TodoService) WithPublisher(p pubsub.Publisher, topic string) *TodoService {
+	t.publisher = p
+	t.topic = topic
+	return t
 }
 
 // WithCreatedCounter attaches a metrics counter incremented on each successful create.
@@ -63,7 +74,11 @@ func (t *TodoService) DeleteTodo(id string) error {
 }
 
 func (t *TodoService) UpdateTodo(todoToUpdate types.Todo) error {
-	return t.storage.Update(todoToUpdate, map[string]any{"id": todoToUpdate.Id})
+	err := t.storage.Update(todoToUpdate, map[string]any{"id": todoToUpdate.Id})
+	if err == nil {
+		t.publishEvent("todo.updated", todoToUpdate)
+	}
+	return err
 }
 
 func (t *TodoService) CreateTodo(todoToCreate types.TodoUpdate) (types.Todo, error) {
@@ -102,5 +117,21 @@ func (t *TodoService) CreateTodo(todoToCreate types.TodoUpdate) (types.Todo, err
 		t.created.Add(1)
 	}
 
+	t.publishEvent("todo.created", todo)
+
 	return todo, nil
+}
+
+func (t *TodoService) publishEvent(eventType string, todo types.Todo) {
+	if t.publisher == nil {
+		return
+	}
+	payload, err := json.Marshal(todo)
+	if err != nil {
+		slog.Error("failed to marshal todo event", slog.Any("error", err.Error()))
+		return
+	}
+	if err := t.publisher.Publish(t.topic, string(payload), map[string]any{"event_type": eventType}); err != nil {
+		slog.Error("failed to publish todo event", slog.Any("error", err.Error()), slog.String("event_type", eventType))
+	}
 }

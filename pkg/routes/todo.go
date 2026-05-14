@@ -15,6 +15,7 @@ import (
 
 	"github.com/tink3rlabs/magic/errors"
 	"github.com/tink3rlabs/magic/middlewares"
+	"github.com/tink3rlabs/magic/pubsub"
 	"github.com/tink3rlabs/magic/telemetry"
 )
 
@@ -71,7 +72,7 @@ type AuthConfig struct {
 	WriteRole  string
 }
 
-func NewTodoRouter(created telemetry.Counter, auth AuthConfig) *TodoRouter {
+func NewTodoRouter(created telemetry.Counter, auth AuthConfig, publisher pubsub.Publisher, topicARN string) *TodoRouter {
 	t := TodoRouter{}
 	h := middlewares.ErrorHandler{}
 	v := middlewares.Validator{}
@@ -96,7 +97,11 @@ func NewTodoRouter(created telemetry.Counter, auth AuthConfig) *TodoRouter {
 	})
 
 	t.Router = router
-	t.service = todo.NewTodoService().WithCreatedCounter(created)
+	service := todo.NewTodoService().WithCreatedCounter(created)
+	if publisher != nil {
+		service = service.WithPublisher(publisher, topicARN)
+	}
+	t.service = service
 
 	return &t
 }

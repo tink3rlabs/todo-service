@@ -62,3 +62,8 @@ observability:
   metrics_mode: prometheus
   enable_tracing: false
   # traces_otlp_endpoint: otel-collector:4317
+pubsub:
+  # set enabled: true and configure topic_arn to publish todo events to SNS
+  enabled: false
+  topic_arn: ""
+  region: us-east-1
