@@ -64,18 +64,29 @@ var idSchema = map[string]string{
 	}`,
 }
 
-func NewTodoRouter(created telemetry.Counter) *TodoRouter {
+func NewTodoRouter(created telemetry.Counter, authMiddleware func(http.Handler) http.Handler, authEnabled bool, writeRole string) *TodoRouter {
 	t := TodoRouter{}
 	h := middlewares.ErrorHandler{}
 	v := middlewares.Validator{}
 
 	router := chi.NewRouter()
+
+	// Public reads.
 	router.Get("/{id}", v.ValidateRequest(idSchema, h.Wrap(t.GetTodo)))
-	router.Delete("/{id}", v.ValidateRequest(idSchema, h.Wrap(t.DeleteTodo)))
-	router.Put("/{id}", v.ValidateRequest(replaceSchema, h.Wrap(t.ReplaceTodo)))
-	router.Patch("/{id}", v.ValidateRequest(idSchema, h.Wrap(t.UpdateTodo)))
-	router.Post("/", v.ValidateRequest(createSchema, h.Wrap(t.CreateTodo)))
 	router.Get("/", h.Wrap(t.ListTodos))
+
+	// Protected writes — require a valid token (and the write role when auth is enabled).
+	router.Group(func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.Use(middlewares.UserRequestContext)
+		if authEnabled {
+			r.Use(middlewares.RequireRole(writeRole))
+		}
+		r.Post("/", v.ValidateRequest(createSchema, h.Wrap(t.CreateTodo)))
+		r.Put("/{id}", v.ValidateRequest(replaceSchema, h.Wrap(t.ReplaceTodo)))
+		r.Patch("/{id}", v.ValidateRequest(idSchema, h.Wrap(t.UpdateTodo)))
+		r.Delete("/{id}", v.ValidateRequest(idSchema, h.Wrap(t.DeleteTodo)))
+	})
 
 	t.Router = router
 	t.service = todo.NewTodoService().WithCreatedCounter(created)

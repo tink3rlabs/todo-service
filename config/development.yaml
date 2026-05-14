@@ -43,6 +43,13 @@ health:
   # list of dependency URLs. If not empty will perform a GET request for each URL
   # and fail the readiness check if any fail or return a status code > 399
   dependencies: ~
+auth:
+  # set enabled: true and configure issuer/audience to require JWTs
+  enabled: false
+  issuer_url: ""
+  audience: ""
+  # role required to create/replace/delete todos when auth is enabled
+  write_role: todo_writer
 logger:
   level: info
   json: false
