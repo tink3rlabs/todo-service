@@ -1,10 +1,10 @@
 ---
-description: Add basic schema structure
+description: Create the todos table
 migrations:
-  - migrate: > 
+  - migrate: >
       CREATE TABLE IF NOT EXISTS todos (
-        id VARCHAR(50) PRIMARY KEY,
-        summary TEXT,
-        done BOOLEAN
+        id VARCHAR(255) PRIMARY KEY,
+        summary TEXT NOT NULL,
+        done BOOLEAN NOT NULL DEFAULT FALSE
       )
     rollback: DROP TABLE IF EXISTS todos
