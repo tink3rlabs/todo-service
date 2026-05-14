@@ -40,7 +40,7 @@ func init() {
 	serverCommand.Flags().StringP("port", "p", "8080", "The port on which the Todo server will listen on")
 }
 
-func initRoutes(obs *observability.Observer, todosCreated telemetry.Counter, auth routes.AuthConfig, publisher pubsub.Publisher, topicARN string) *chi.Mux {
+func initRoutes(obs *observability.Observer, todosCreated telemetry.Counter, auth routes.AuthConfig, pubSub routes.PubSubConfig) *chi.Mux {
 	router := chi.NewRouter()
 	router.Use(
 		render.SetContentType(render.ContentTypeJSON), // Set content-Type headers as application/json
@@ -61,7 +61,7 @@ func initRoutes(obs *observability.Observer, todosCreated telemetry.Counter, aut
 		}),
 	)
 
-	t := routes.NewTodoRouter(todosCreated, auth, publisher, topicARN)
+	t := routes.NewTodoRouter(todosCreated, auth, pubSub)
 	router.Route("/", func(r chi.Router) {
 		r.Mount("/todos", t.Router)
 	})
@@ -187,7 +187,12 @@ func runServer(cmd *cobra.Command, args []string) error {
 		WriteRole:  viper.GetString("auth.write_role"),
 	}
 
-	router := initRoutes(obs, todosCreated, authCfg, publisher, viper.GetString("pubsub.topic_arn"))
+	pubSubCfg := routes.PubSubConfig{
+		Publisher: publisher,
+		TopicARN:  viper.GetString("pubsub.topic_arn"),
+	}
+
+	router := initRoutes(obs, todosCreated, authCfg, pubSubCfg)
 
 	router.Handle("/metrics", obs.MetricsHandler())
 

@@ -128,10 +128,10 @@ func (t *TodoService) publishEvent(eventType string, todo types.Todo) {
 	}
 	payload, err := json.Marshal(todo)
 	if err != nil {
-		slog.Error("failed to marshal todo event", slog.Any("error", err.Error()))
+		slog.Error("failed to marshal todo event", slog.String("error", err.Error()))
 		return
 	}
 	if err := t.publisher.Publish(t.topic, string(payload), map[string]any{"event_type": eventType}); err != nil {
-		slog.Error("failed to publish todo event", slog.Any("error", err.Error()), slog.String("event_type", eventType))
+		slog.Error("failed to publish todo event", slog.String("error", err.Error()), slog.String("event_type", eventType))
 	}
 }

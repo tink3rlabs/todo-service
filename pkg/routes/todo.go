@@ -72,7 +72,13 @@ type AuthConfig struct {
 	WriteRole  string
 }
 
-func NewTodoRouter(created telemetry.Counter, auth AuthConfig, publisher pubsub.Publisher, topicARN string) *TodoRouter {
+// PubSubConfig carries the pub/sub wiring for the todo routes.
+type PubSubConfig struct {
+	Publisher pubsub.Publisher
+	TopicARN  string
+}
+
+func NewTodoRouter(created telemetry.Counter, auth AuthConfig, pubSub PubSubConfig) *TodoRouter {
 	t := TodoRouter{}
 	h := middlewares.ErrorHandler{}
 	v := middlewares.Validator{}
@@ -98,8 +104,8 @@ func NewTodoRouter(created telemetry.Counter, auth AuthConfig, publisher pubsub.
 
 	t.Router = router
 	service := todo.NewTodoService().WithCreatedCounter(created)
-	if publisher != nil {
-		service = service.WithPublisher(publisher, topicARN)
+	if pubSub.Publisher != nil {
+		service = service.WithPublisher(pubSub.Publisher, pubSub.TopicARN)
 	}
 	t.service = service
 
