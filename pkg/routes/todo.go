@@ -105,6 +105,12 @@ func NewTodoRouter() *TodoRouter {
 //	        required: false
 //	        schema:
 //	          type: string
+//	      - name: filter
+//	        in: query
+//	        description: A Lucene query string to filter todos (e.g. done:true)
+//	        required: false
+//	        schema:
+//	          type: string
 //	    responses:
 //	      '200':
 //	        description: successful operation
@@ -116,15 +122,22 @@ func NewTodoRouter() *TodoRouter {
 //	         $ref: '#/components/responses/ServerError'
 func (t *TodoRouter) ListTodos(w http.ResponseWriter, r *http.Request) error {
 	cursor := r.URL.Query().Get("next")
+	filter := r.URL.Query().Get("filter")
 
 	limit, err := strconv.ParseInt(r.URL.Query().Get("limit"), 10, 64)
-	if (err != nil) || limit <= 0 {
+	if err != nil || limit <= 0 {
 		limit = 10
 	}
 
-	todos, next, err := t.service.ListTodos(int(limit), cursor)
+	var todos []types.Todo
+	var next string
+	if filter != "" {
+		todos, next, err = t.service.SearchTodos(filter, int(limit), cursor)
+	} else {
+		todos, next, err = t.service.ListTodos(int(limit), cursor)
+	}
 	if err != nil {
-		return err
+		return &errors.BadRequest{Message: err.Error()}
 	}
 	render.JSON(w, r, types.TodoList{Todos: todos, Next: next})
 	return nil

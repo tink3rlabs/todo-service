@@ -36,6 +36,14 @@ func (t *TodoService) ListTodos(limit int, cursor string) ([]types.Todo, string,
 	return todos, next, err
 }
 
+// SearchTodos returns todos matching a Lucene filter string, cursor-paginated.
+// An empty filter returns everything (subject to limit/cursor).
+func (t *TodoService) SearchTodos(filter string, limit int, cursor string) ([]types.Todo, string, error) {
+	todos := []types.Todo{}
+	next, err := t.storage.Search(&todos, "id", filter, limit, cursor)
+	return todos, next, err
+}
+
 func (t *TodoService) GetTodo(id string) (types.Todo, error) {
 	todo := types.Todo{}
 	err := t.storage.Get(&todo, map[string]any{"id": id})
