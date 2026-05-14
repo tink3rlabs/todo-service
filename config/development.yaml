@@ -47,7 +47,10 @@ auth:
   # set enabled: true and configure issuer/audience to require JWTs
   enabled: false
   issuer_url: ""
-  audience: ""
+  # audience accepts one or more values, e.g.:
+  #   audience:
+  #     - https://api.todo-service.example
+  audience: []
   # role required to create/replace/delete todos when auth is enabled
   write_role: todo_writer
 logger:

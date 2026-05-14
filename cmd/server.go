@@ -39,7 +39,7 @@ func init() {
 	serverCommand.Flags().StringP("port", "p", "8080", "The port on which the Todo server will listen on")
 }
 
-func initRoutes(obs *observability.Observer, todosCreated telemetry.Counter, authMiddleware func(http.Handler) http.Handler, authEnabled bool, writeRole string) *chi.Mux {
+func initRoutes(obs *observability.Observer, todosCreated telemetry.Counter, auth routes.AuthConfig) *chi.Mux {
 	router := chi.NewRouter()
 	router.Use(
 		render.SetContentType(render.ContentTypeJSON), // Set content-Type headers as application/json
@@ -60,7 +60,7 @@ func initRoutes(obs *observability.Observer, todosCreated telemetry.Counter, aut
 		}),
 	)
 
-	t := routes.NewTodoRouter(todosCreated, authMiddleware, authEnabled, writeRole)
+	t := routes.NewTodoRouter(todosCreated, auth)
 	router.Route("/", func(r chi.Router) {
 		r.Mount("/todos", t.Router)
 	})
@@ -164,13 +164,19 @@ func runServer(cmd *cobra.Command, args []string) error {
 		}
 	}()
 
+	authEnabled := viper.GetBool("auth.enabled")
 	authMiddleware := middlewares.EnsureValidToken(middlewares.EnsureValidTokenConfig{
-		Enabled:   viper.GetBool("auth.enabled"),
+		Enabled:   authEnabled,
 		IssuerURL: viper.GetString("auth.issuer_url"),
-		Audience:  []string{viper.GetString("auth.audience")},
+		Audience:  viper.GetStringSlice("auth.audience"),
 	})
+	authCfg := routes.AuthConfig{
+		Middleware: authMiddleware,
+		Enabled:    authEnabled,
+		WriteRole:  viper.GetString("auth.write_role"),
+	}
 
-	router := initRoutes(obs, todosCreated, authMiddleware, viper.GetBool("auth.enabled"), viper.GetString("auth.write_role"))
+	router := initRoutes(obs, todosCreated, authCfg)
 
 	router.Handle("/metrics", obs.MetricsHandler())
 

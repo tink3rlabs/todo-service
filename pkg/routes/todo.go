@@ -64,7 +64,14 @@ var idSchema = map[string]string{
 	}`,
 }
 
-func NewTodoRouter(created telemetry.Counter, authMiddleware func(http.Handler) http.Handler, authEnabled bool, writeRole string) *TodoRouter {
+// AuthConfig carries the auth wiring for the todo routes.
+type AuthConfig struct {
+	Middleware func(http.Handler) http.Handler
+	Enabled    bool
+	WriteRole  string
+}
+
+func NewTodoRouter(created telemetry.Counter, auth AuthConfig) *TodoRouter {
 	t := TodoRouter{}
 	h := middlewares.ErrorHandler{}
 	v := middlewares.Validator{}
@@ -77,10 +84,10 @@ func NewTodoRouter(created telemetry.Counter, authMiddleware func(http.Handler) 
 
 	// Protected writes — require a valid token (and the write role when auth is enabled).
 	router.Group(func(r chi.Router) {
-		r.Use(authMiddleware)
+		r.Use(auth.Middleware)
 		r.Use(middlewares.UserRequestContext)
-		if authEnabled {
-			r.Use(middlewares.RequireRole(writeRole))
+		if auth.Enabled {
+			r.Use(middlewares.RequireRole(auth.WriteRole))
 		}
 		r.Post("/", v.ValidateRequest(createSchema, h.Wrap(t.CreateTodo)))
 		r.Put("/{id}", v.ValidateRequest(replaceSchema, h.Wrap(t.ReplaceTodo)))
