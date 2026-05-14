@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -44,6 +47,7 @@ func initRoutes(obs *observability.Observer, todosCreated telemetry.Counter) *ch
 		middleware.RedirectSlashes, // Redirect slashes to no slash URL versions
 		middleware.Recoverer,       // Recover from panics without crashing server
 		middlewares.ObservabilityWithOptions(obs, middlewares.ObservabilityOptions{
+			SkipPaths:        []string{"/metrics"},
 			SkipPathPrefixes: []string{"/health/"},
 		}),
 		cors.Handler(cors.Options{
@@ -96,6 +100,9 @@ func runServer(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load OpenAPI definition, did you forget to run go generate?: %v", err)
 	}
 
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
 	obsCfg := observability.DefaultConfig()
 	obsCfg.ServiceName = viper.GetString("observability.service_name")
 	if obsCfg.ServiceName == "" {
@@ -111,9 +118,9 @@ func runServer(cmd *cobra.Command, args []string) error {
 	obsCfg.EnableTracing = viper.GetBool("observability.enable_tracing")
 	obsCfg.TracesOTLPEndpoint = viper.GetString("observability.traces_otlp_endpoint")
 
-	obs, err := observability.Init(context.Background(), obsCfg)
+	obs, err := observability.Init(ctx, obsCfg)
 	if err != nil {
-		logger.Fatal("failed to initialise observability", slog.Any("error", err.Error()))
+		logger.Fatal("failed to initialise observability", slog.String("error", err.Error()))
 	}
 	defer obs.Shutdown(context.Background())
 
@@ -123,7 +130,7 @@ func runServer(cmd *cobra.Command, args []string) error {
 		Kind: telemetry.KindCounter,
 	})
 	if err != nil {
-		logger.Fatal("failed to register todos_created counter", slog.Any("error", err.Error()))
+		logger.Fatal("failed to register todos_created counter", slog.String("error", err.Error()))
 	}
 
 	storageAdapter, err := storage.StorageAdapterFactory{}.GetInstance(
@@ -190,5 +197,22 @@ func runServer(cmd *cobra.Command, args []string) error {
 
 	port := viper.GetString("service.port")
 	listenAddress := fmt.Sprintf(":%s", port)
-	return http.ListenAndServe(listenAddress, router)
+
+	srv := &http.Server{Addr: listenAddress, Handler: router}
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Fatal("server failed", slog.Any("error", err))
+		}
+	}()
+	slog.Info("todo-service listening", slog.String("address", listenAddress))
+
+	<-ctx.Done()
+	slog.Info("shutdown signal received, stopping server")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		slog.Error("graceful shutdown failed", slog.Any("error", err))
+	}
+	return nil
 }
