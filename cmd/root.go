@@ -1,3 +1,4 @@
+// --8<-- [start:root-cmd]
 package cmd
 
 import (
@@ -79,3 +80,4 @@ func loggerConfig() *logger.Config {
 		JSON:  json,
 	}
 }
+// --8<-- [end:root-cmd]

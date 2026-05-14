@@ -1,3 +1,4 @@
+// --8<-- [start:routes-a]
 package routes
 
 import (
@@ -111,7 +112,9 @@ func NewTodoRouter(created telemetry.Counter, auth AuthConfig, pubSub PubSubConf
 
 	return &t
 }
+// --8<-- [end:routes-a]
 
+// --8<-- [start:routes-b]
 // @openapi
 // paths:
 //
@@ -424,3 +427,4 @@ func (t *TodoRouter) UpdateTodo(w http.ResponseWriter, r *http.Request) error {
 	render.NoContent(w, r)
 	return nil
 }
+// --8<-- [end:routes-b]

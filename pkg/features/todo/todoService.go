@@ -1,3 +1,4 @@
+// --8<-- [start:feature-service]
 package todo
 
 import (
@@ -50,7 +51,9 @@ func NewTodoService() *TodoService {
 
 func (t *TodoService) ListTodos(limit int, cursor string) ([]types.Todo, string, error) {
 	todos := []types.Todo{}
+	// --8<-- [start:feature-list-call]
 	next, err := t.storage.List(&todos, "id", map[string]any{}, limit, cursor)
+	// --8<-- [end:feature-list-call]
 
 	return todos, next, err
 }
@@ -59,7 +62,9 @@ func (t *TodoService) ListTodos(limit int, cursor string) ([]types.Todo, string,
 // An empty filter returns everything (subject to limit/cursor).
 func (t *TodoService) SearchTodos(filter string, limit int, cursor string) ([]types.Todo, string, error) {
 	todos := []types.Todo{}
+	// --8<-- [start:feature-search-call]
 	next, err := t.storage.Search(&todos, "id", filter, limit, cursor)
+	// --8<-- [end:feature-search-call]
 	return todos, next, err
 }
 
@@ -135,3 +140,4 @@ func (t *TodoService) publishEvent(eventType string, todo types.Todo) {
 		slog.Error("failed to publish todo event", slog.String("error", err.Error()), slog.String("event_type", eventType))
 	}
 }
+// --8<-- [end:feature-service]

@@ -1,3 +1,4 @@
+// --8<-- [start:server-cmd-b]
 package cmd
 
 import (
@@ -143,7 +144,9 @@ func runServer(cmd *cobra.Command, args []string) error {
 		panic("failed to get storage adapter instance")
 	}
 
+	// --8<-- [start:server-cmd-a]
 	storage.NewDatabaseMigration(storageAdapter).Migrate()
+	// --8<-- [end:server-cmd-a]
 
 	var publisher pubsub.Publisher
 	if viper.GetBool("pubsub.enabled") {
@@ -244,3 +247,4 @@ func runServer(cmd *cobra.Command, args []string) error {
 	}
 	return nil
 }
+// --8<-- [end:server-cmd-b]
