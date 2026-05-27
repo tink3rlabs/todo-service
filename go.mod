@@ -4,7 +4,7 @@ go 1.25.10
 
 require (
 	github.com/evanphx/json-patch/v5 v5.9.0
-	github.com/go-chi/chi/v5 v5.2.5
+	github.com/go-chi/chi/v5 v5.3.0
 	github.com/go-chi/cors v1.2.1
 	github.com/go-chi/render v1.0.3
 	github.com/go-co-op/gocron/v2 v2.11.0
@@ -12,7 +12,7 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/viper v1.19.0
-	github.com/tink3rlabs/magic v0.17.1
+	github.com/tink3rlabs/magic v0.17.3
 	github.com/tink3rlabs/openapi-godoc v0.3.0
 )
 
@@ -72,7 +72,7 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-sql-driver/mysql v1.8.1 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
-	github.com/grindlemire/go-lucene v0.1.0 // indirect
+	github.com/grindlemire/go-lucene v0.2.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.28.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
