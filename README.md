@@ -1,106 +1,80 @@
-# TODO Service
-TODO Service provides a framework for building a microservice in go-lang. 
+# todo-service
 
-## Developing
+todo-service is the canonical reference service for the
+[`github.com/tink3rlabs/magic`](https://github.com/tink3rlabs/magic) library. It is
+a small but complete microservice — a CRUD API for todo items — that demonstrates
+magic's features end to end.
 
-There are two ways you can develope
+A step-by-step tutorial that builds this service is in the magic documentation.
 
-### Using a devcontainer
+## Features showcased
 
-Using [devcontainers](https://containers.dev/) is the recommended approach as it ensures your development machine stays clean as well as provides consistency between different developers reducing the "works on my machine" problem.
+- **Storage adapters with startup migrations** — `storage.StorageAdapterFactory`
+  selects a memory, SQL (postgresql, mysql, sqlite), or dynamodb adapter from
+  configuration; migrations run at startup via `storage.NewDatabaseMigration`.
+- **Listing and search** — `GET /todos` supports both a structured list and a
+  Lucene `?filter=` search, cursor-paginated with `limit` and `next`.
+- **Full CRUD including JSON Patch** — GET/POST/PUT/PATCH/DELETE on `/todos`, with
+  PATCH accepting JSON Patch documents.
+- **Typed errors mapped to HTTP status** — `magic/errors` values are translated to
+  status codes by the `ErrorHandler` middleware.
+- **Request validation** — `Validator` middleware backed by JSON schemas.
+- **Health probes** — `GET /health/liveness` and `GET /health/readiness`.
+- **Observability** — magic's `observability` package exports Prometheus or OTLP
+  metrics and traces, including a custom `todo_service_todos_created_total`
+  counter; metrics are served at `/metrics`.
+- **Config-gated JWT auth** — `EnsureValidToken` plus `RequireRole` guard the write
+  routes when enabled; reads are public.
+- **Config-gated pub/sub** — publishes `todo.created` and `todo.updated` events via
+  magic's `pubsub` package over SNS.
+- **Leadership election and scheduling** — the `leadership` package elects a leader
+  that runs a gocron scheduler.
+- **OpenAPI generation** — the spec is generated with `openapi-godoc` and served at
+  `/api-docs`.
+- **cobra CLI + viper config** — a `server` subcommand with configuration loaded by
+  viper from an embedded `embed.FS`.
 
-To develope in a dev container follow these steps:
+## Running it locally
 
-1. Install [Docker](https://www.docker.com/) and [VSCode](https://code.visualstudio.com/)
-2. Install the [Dev Containers VSCode extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
-3. Open the code base in vscode
-4. You will be prompted to reopen the project in a dev container, follow the instructions
-
-### Using the traditional approach
-
-Install the [go language ](https://go.dev/) and your favorite IDE, then start developing using whichever method works best for you.
-
-if you use Visual studio code, consider installing [Rich Go language support for Visual Studio Code](https://marketplace.visualstudio.com/items?itemName=golang.Go) by the go team at Google. It provides several nifty features.
-
-## Building and running
- ```bash
- go generate
-```
- ```bash
- go build
-```
- ```bash
- ./todo-service --config ./config/development.yaml server
-```
-
-## Testing with curl
-
-### Creating a new TODO item
-
- ```bash
-curl -X POST "http://localhost:8080/todos" \
-    -H "accept: application/json" \
-    -H "Content-Type: application/json" \
-    -d '{
-      "summary": "New Todo item",
-      "done": false
-    }'
-```
-
-### Listing TODO items
+Prerequisites: Go 1.25.
 
 ```bash
-curl http://localhost:8080/todos
+go run . server --config config/development.yaml
 ```
 
-### Getting a single TODO items
+The service defaults to the in-memory storage adapter, so it runs with no external
+services. Auth and pub/sub are disabled by default, so no tokens and no AWS
+credentials are needed.
 
-You can get the ID of the TODO item from either the response to the Create TODO API call, or the response to the List TODO API call
+`config/openapi.json` is a generated artifact. Regenerate it with:
 
 ```bash
-curl http://localhost:8080/todos/${TODO_ID}
+go generate ./...
 ```
 
-### Updating a todo item (replace mode)
+## Configuration
 
-This method replaces all values of the TODO item with the specified ID with the ones provided in the request body.
+Configuration lives in `config/development.yaml`. The configurable blocks are:
 
-You can get the ID of the TODO item from either the response to the Create TODO API call, or the response to the List TODO API call
+- `storage` — adapter selection and connection settings
+- `auth` — JWT validation and role requirements (disabled by default)
+- `observability` — metrics and tracing backends
+- `pubsub` — SNS event publishing (disabled by default)
+- `leadership` — leader election
+- `health` — health probe behavior
+- `logger` — log level and format
 
-```bash
-curl -X PUT http://localhost:8080/${TODO_ID} \
-  -H 'Content-Type: application/json' \
-  -d '{"summary": "replaced", "done": true}'
-```
+## Endpoints
 
-### Updating a todo item (patch mode)
-
-This method folows the [JSONPatch](https://jsonpatch.com/) format to update specific values of the todo with the specified ID with the ones provided in the request body.
-
-You can get the ID of the TODO item from either the response to the Create TODO API call, or the response to the List TODO API call
-
-```bash
-curl -X PATCH http://localhost:8080/todos/${TODO_ID} \
-     -H 'accept: application/json' \
-     -H 'Content-Type: application/json-patch+json' \
-     -d '[
-       {
-         "op": "replace",
-         "path": "/summary",
-         "value": "patched"
-       },
-       {
-         "op": "replace",
-         "path": "/done",
-         "value": true
-       }
-     ]'
-```
-
-### Deleting a single TODO items
-
-You can get the ID of the TODO item from either the response to the Create TODO API call, or the response to the List TODO API call
-
-```bash
-curl -X DELETE http://localhost:8080/todos/${TODO_ID}
-```
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/todos` | List or Lucene-search todos (cursor-paginated) |
+| POST | `/todos` | Create a todo |
+| GET | `/todos/{id}` | Get a todo |
+| PUT | `/todos/{id}` | Replace a todo |
+| PATCH | `/todos/{id}` | Update a todo with a JSON Patch document |
+| DELETE | `/todos/{id}` | Delete a todo |
+| GET | `/health/liveness` | Liveness probe |
+| GET | `/health/readiness` | Readiness probe |
+| GET | `/metrics` | Prometheus metrics |
+| GET | `/api-docs` | OpenAPI specification |

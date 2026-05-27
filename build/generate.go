@@ -15,22 +15,10 @@ import (
 func generateOApiSpec() ([]byte, error) {
 	securitySchemasData := []byte(`
 	{
-		"petstore_auth": {
-			"type": "oauth2",
-			"flows": {
-				"implicit": {
-					"authorizationUrl": "https://petstore3.swagger.io/oauth/authorize",
-					"scopes": {
-						"write:pets": "modify pets in your account",
-						"read:pets": "read your pets"
-					}
-				}
-			}
-		},
-		"api_key": {
-			"type": "apiKey",
-			"name": "api_key",
-			"in": "header"
+		"bearer_auth": {
+			"type": "http",
+			"scheme": "bearer",
+			"bearerFormat": "JWT"
 		}
 	}`)
 
@@ -46,7 +34,7 @@ func generateOApiSpec() ([]byte, error) {
 			Title:       "Todo API",
 			Version:     "1.0.0",
 			Description: "Simple example Todo API",
-			Contact:     &openapi3.Contact{Email: "developer@example.com"},
+			Contact:     &openapi3.Contact{Name: "tink3rlabs", URL: "https://github.com/tink3rlabs/todo-service"},
 			License:     &openapi3.License{Name: "Apache 2.0", URL: "http://www.apache.org/licenses/LICENSE-2.0.html"},
 		},
 		Servers: []openapigodoc.Server{{URL: "http://localhost:8080"}},
@@ -54,10 +42,10 @@ func generateOApiSpec() ([]byte, error) {
 			{
 				Name:         "todos",
 				Description:  "Manage Todo items",
-				ExternalDocs: &openapi3.ExternalDocs{URL: "http://example.com", Description: "Find out more"},
+				ExternalDocs: &openapi3.ExternalDocs{URL: "https://github.com/tink3rlabs/todo-service", Description: "todo-service on GitHub"},
 			},
 		},
-		ExternalDocs: openapigodoc.ExternalDocs{Description: "Find out more", URL: "http://example.com"},
+		ExternalDocs: openapigodoc.ExternalDocs{Description: "todo-service on GitHub", URL: "https://github.com/tink3rlabs/todo-service"},
 		Components: openapigodoc.Components{
 			SecuritySchemes: securitySchemas,
 		},

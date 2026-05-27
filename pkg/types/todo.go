@@ -1,3 +1,4 @@
+// --8<-- [start:types-todo]
 package types
 
 // @openapi
@@ -64,3 +65,4 @@ type TodoList struct {
 	Todos []Todo `json:"todos"`
 	Next  string `json:"next"`
 }
+// --8<-- [end:types-todo]

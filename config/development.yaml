@@ -43,6 +43,27 @@ health:
   # list of dependency URLs. If not empty will perform a GET request for each URL
   # and fail the readiness check if any fail or return a status code > 399
   dependencies: ~
+auth:
+  # set enabled: true and configure issuer/audience to require JWTs
+  enabled: false
+  issuer_url: ""
+  # audience accepts one or more values, e.g.:
+  #   audience:
+  #     - https://api.todo-service.example
+  audience: []
+  # role required to create/replace/delete todos when auth is enabled
+  write_role: todo_writer
 logger:
   level: info
   json: false
+observability:
+  service_name: todo-service
+  # metrics_mode: prometheus | otlp
+  metrics_mode: prometheus
+  enable_tracing: false
+  # traces_otlp_endpoint: otel-collector:4317
+pubsub:
+  # set enabled: true and configure topic_arn to publish todo events to SNS
+  enabled: false
+  topic_arn: ""
+  region: us-east-1

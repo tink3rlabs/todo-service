@@ -1,3 +1,4 @@
+// --8<-- [start:routes-a]
 package routes
 
 import (
@@ -15,38 +16,14 @@ import (
 
 	"github.com/tink3rlabs/magic/errors"
 	"github.com/tink3rlabs/magic/middlewares"
+	"github.com/tink3rlabs/magic/pubsub"
+	"github.com/tink3rlabs/magic/telemetry"
 )
 
 type TodoRouter struct {
 	Router  *chi.Mux
 	service *todo.TodoService
 }
-
-// Define the JSON schemas as a map where the ctx(body, params and query) is the key and schema is the value
-// Example: If you gave a request where you need to validate body, params and query
-// var schema = map[string]string{
-// 	"body": `{
-// 		"type": "object",
-// 		"properties": {
-// 			"summary": { "type": "string" }
-// 		},
-// 		"required": ["summary"]
-// 	}`,
-// 	"params": `{
-// 		"type": "object",
-// 		"properties": {
-// 			"id": { "type": "string" }
-// 		},
-// 		"required": ["id"]
-// 	}`,
-// 	"query": `{
-// 		"type": "object",
-// 		"properties": {
-// 			"app": { "type": "string" }
-// 		},
-// 		"required": ["app"]
-// 	}`,
-// }
 
 var createSchema = map[string]string{
 	"body": `{
@@ -89,25 +66,55 @@ var idSchema = map[string]string{
 	}`,
 }
 
-func NewTodoRouter() *TodoRouter {
+// AuthConfig carries the auth wiring for the todo routes.
+type AuthConfig struct {
+	Middleware func(http.Handler) http.Handler
+	Enabled    bool
+	WriteRole  string
+}
+
+// PubSubConfig carries the pub/sub wiring for the todo routes.
+type PubSubConfig struct {
+	Publisher pubsub.Publisher
+	TopicARN  string
+}
+
+func NewTodoRouter(created telemetry.Counter, auth AuthConfig, pubSub PubSubConfig) *TodoRouter {
 	t := TodoRouter{}
 	h := middlewares.ErrorHandler{}
 	v := middlewares.Validator{}
 
 	router := chi.NewRouter()
+
+	// Public reads.
 	router.Get("/{id}", v.ValidateRequest(idSchema, h.Wrap(t.GetTodo)))
-	router.Delete("/{id}", v.ValidateRequest(idSchema, h.Wrap(t.DeleteTodo)))
-	router.Put("/{id}", v.ValidateRequest(replaceSchema, h.Wrap(t.ReplaceTodo)))
-	router.Patch("/{id}", v.ValidateRequest(idSchema, h.Wrap(t.UpdateTodo)))
-	router.Post("/", v.ValidateRequest(createSchema, h.Wrap(t.CreateTodo)))
 	router.Get("/", h.Wrap(t.ListTodos))
 
+	// Protected writes — require a valid token (and the write role when auth is enabled).
+	router.Group(func(r chi.Router) {
+		r.Use(auth.Middleware)
+		r.Use(middlewares.UserRequestContext)
+		if auth.Enabled {
+			r.Use(middlewares.RequireRole(auth.WriteRole))
+		}
+		r.Post("/", v.ValidateRequest(createSchema, h.Wrap(t.CreateTodo)))
+		r.Put("/{id}", v.ValidateRequest(replaceSchema, h.Wrap(t.ReplaceTodo)))
+		r.Patch("/{id}", v.ValidateRequest(idSchema, h.Wrap(t.UpdateTodo)))
+		r.Delete("/{id}", v.ValidateRequest(idSchema, h.Wrap(t.DeleteTodo)))
+	})
+
 	t.Router = router
-	t.service = todo.NewTodoService()
+	service := todo.NewTodoService().WithCreatedCounter(created)
+	if pubSub.Publisher != nil {
+		service = service.WithPublisher(pubSub.Publisher, pubSub.TopicARN)
+	}
+	t.service = service
 
 	return &t
 }
+// --8<-- [end:routes-a]
 
+// --8<-- [start:routes-b]
 // @openapi
 // paths:
 //
@@ -131,6 +138,12 @@ func NewTodoRouter() *TodoRouter {
 //	        required: false
 //	        schema:
 //	          type: string
+//	      - name: filter
+//	        in: query
+//	        description: A Lucene query string to filter todos (e.g. done:1)
+//	        required: false
+//	        schema:
+//	          type: string
 //	    responses:
 //	      '200':
 //	        description: successful operation
@@ -142,15 +155,22 @@ func NewTodoRouter() *TodoRouter {
 //	         $ref: '#/components/responses/ServerError'
 func (t *TodoRouter) ListTodos(w http.ResponseWriter, r *http.Request) error {
 	cursor := r.URL.Query().Get("next")
+	filter := r.URL.Query().Get("filter")
 
 	limit, err := strconv.ParseInt(r.URL.Query().Get("limit"), 10, 64)
-	if (err != nil) || limit <= 0 {
+	if err != nil || limit <= 0 {
 		limit = 10
 	}
 
-	todos, next, err := t.service.ListTodos(int(limit), cursor)
+	var todos []types.Todo
+	var next string
+	if filter != "" {
+		todos, next, err = t.service.SearchTodos(filter, int(limit), cursor)
+	} else {
+		todos, next, err = t.service.ListTodos(int(limit), cursor)
+	}
 	if err != nil {
-		return err
+		return &errors.BadRequest{Message: err.Error()}
 	}
 	render.JSON(w, r, types.TodoList{Todos: todos, Next: next})
 	return nil
@@ -294,9 +314,9 @@ func (t *TodoRouter) CreateTodo(w http.ResponseWriter, r *http.Request) error {
 //	      '204':
 //	        description: successful operation
 //	      '400':
-//	         $ref: '#/components/responses/NotFound'
-//	      '404':
 //	         $ref: '#/components/responses/BadRequest'
+//	      '404':
+//	         $ref: '#/components/responses/NotFound'
 //	      '500':
 //	         $ref: '#/components/responses/ServerError'
 func (t *TodoRouter) ReplaceTodo(w http.ResponseWriter, r *http.Request) error {
@@ -356,9 +376,9 @@ func (t *TodoRouter) ReplaceTodo(w http.ResponseWriter, r *http.Request) error {
 //	      '204':
 //	        description: successful operation
 //	      '400':
-//	         $ref: '#/components/responses/NotFound'
-//	      '404':
 //	         $ref: '#/components/responses/BadRequest'
+//	      '404':
+//	         $ref: '#/components/responses/NotFound'
 //	      '500':
 //	         $ref: '#/components/responses/ServerError'
 func (t *TodoRouter) UpdateTodo(w http.ResponseWriter, r *http.Request) error {
@@ -407,3 +427,4 @@ func (t *TodoRouter) UpdateTodo(w http.ResponseWriter, r *http.Request) error {
 	render.NoContent(w, r)
 	return nil
 }
+// --8<-- [end:routes-b]
